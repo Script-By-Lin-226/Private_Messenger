@@ -74,38 +74,14 @@ def ensure_db_initialized():
             traceback.print_exc()
 
 # Rate limiting storage (simplified for serverless)
-rate_limit_storage = {}
+# Rate limiting disabled for better user experience
 
 def rate_limit(max_requests=5, window=60):
-    """Rate limiting decorator (simplified for serverless)"""
+    """Rate limiting decorator (disabled for better user experience)"""
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            # Skip rate limiting on Vercel for now to avoid issues
-            if os.environ.get('VERCEL'):
-                return f(*args, **kwargs)
-            
-            # Get client IP
-            client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-            if ',' in client_ip:
-                client_ip = client_ip.split(',')[0].strip()
-            
-            current_time = time.time()
-            key = f"{client_ip}:{f.__name__}"
-            
-            # Clean old entries
-            if key in rate_limit_storage:
-                rate_limit_storage[key] = [t for t in rate_limit_storage[key] if current_time - t < window]
-            else:
-                rate_limit_storage[key] = []
-            
-            # Check rate limit
-            if len(rate_limit_storage[key]) >= max_requests:
-                return jsonify({'error': 'Rate limit exceeded. Please try again later.'}), 429
-            
-            # Add current request
-            rate_limit_storage[key].append(current_time)
-            
+            # Rate limiting disabled - always allow requests
             return f(*args, **kwargs)
         return decorated_function
     return decorator
@@ -982,6 +958,69 @@ def admin_settings():
     """Admin settings page"""
     return render_template('admin_settings.html')
 
+@app.route('/setup-admin', methods=['GET', 'POST'])
+def setup_admin():
+    """Setup admin user for first deployment"""
+    try:
+        # Check if admin already exists
+        admin_exists = User.query.filter_by(is_admin=True).first()
+        
+        if admin_exists:
+            flash('Admin user already exists. Please log in.', 'info')
+            return redirect(url_for('login_page'))
+        
+        if request.method == 'POST':
+            username = request.form.get('username')
+            password = request.form.get('password')
+            email = request.form.get('email', '')
+            
+            # Validate input
+            if not username or not password:
+                flash('Username and password are required.', 'error')
+                return render_template('setup_admin.html')
+            
+            if not validate_username(username):
+                flash('Invalid username. Use 3-20 alphanumeric characters.', 'error')
+                return render_template('setup_admin.html')
+            
+            if len(password) < 6:
+                flash('Password must be at least 6 characters.', 'error')
+                return render_template('setup_admin.html')
+            
+            # Check if username exists
+            if User.query.filter_by(username=username).first():
+                flash('Username already exists.', 'error')
+                return render_template('setup_admin.html')
+            
+            # Create admin user
+            admin_user = User(
+                id=generate_user_id(),
+                username=username,
+                password_hash=hash_password(password),
+                is_admin=True,
+                is_active=True,
+                is_verified=True,
+                role='super_admin',
+                permissions='all',
+                created_at=datetime.utcnow()
+            )
+            
+            db.session.add(admin_user)
+            db.session.commit()
+            
+            # Initialize system settings
+            from create_admin import initialize_system_settings
+            initialize_system_settings()
+            
+            flash('Admin user created successfully! You can now log in.', 'success')
+            return redirect(url_for('login_page'))
+        
+        return render_template('setup_admin.html')
+        
+    except Exception as e:
+        flash(f'Error creating admin: {str(e)}', 'error')
+        return render_template('setup_admin.html')
+
 # Admin API Routes
 @app.route('/api/admin/users')
 @admin_required
@@ -1483,9 +1522,7 @@ def internal_error(error):
         }
     }), 500
 
-@app.errorhandler(429)
-def rate_limit_error(error):
-    return jsonify({'error': 'Rate limit exceeded. Please try again later.'}), 429
+# Rate limit error handler removed - no longer needed
 
 if __name__ == '__main__':
     app.run(debug=True)

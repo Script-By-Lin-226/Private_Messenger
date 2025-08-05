@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Admin - Private Messenger</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        .setup-container {
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 30px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .setup-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .setup-header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .setup-header p {
+            color: #666;
+            font-size: 16px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn-setup {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        
+        .btn-setup:hover {
+            transform: translateY(-2px);
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .security-note {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .security-note h4 {
+            color: #856404;
+            margin-top: 0;
+        }
+        
+        .security-note ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .security-note li {
+            color: #856404;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <div class="setup-header">
+            <h1>🔐 Setup Admin Account</h1>
+            <p>Create the first administrator account for your Private Messenger</p>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else 'success' if category == 'success' else 'info' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <form method="POST">
+            <div class="form-group">
+                <label for="username">Admin Username</label>
+                <input type="text" id="username" name="username" required 
+                       placeholder="Enter admin username" 
+                       pattern="[a-zA-Z0-9_]{3,20}"
+                       title="3-20 alphanumeric characters and underscores only">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Admin Password</label>
+                <input type="password" id="password" name="password" required 
+                       placeholder="Enter secure password" 
+                       minlength="6"
+                       title="Minimum 6 characters">
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email (Optional)</label>
+                <input type="email" id="email" name="email" 
+                       placeholder="admin@example.com">
+            </div>
+            
+            <button type="submit" class="btn-setup">Create Admin Account</button>
+        </form>
+        
+        <div class="security-note">
+            <h4>🔒 Security Recommendations:</h4>
+            <ul>
+                <li>Use a strong, unique password</li>
+                <li>Choose a username that's not easily guessable</li>
+                <li>Keep your admin credentials secure</li>
+                <li>This account will have full system access</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        // Password strength indicator
+        document.getElementById('password').addEventListener('input', function() {
+            const password = this.value;
+            const strength = calculatePasswordStrength(password);
+            
+            // Remove existing strength classes
+            this.classList.remove('weak', 'medium', 'strong');
+            
+            // Add appropriate strength class
+            if (password.length > 0) {
+                this.classList.add(strength);
+            }
+        });
+        
+        function calculatePasswordStrength(password) {
+            if (password.length < 6) return 'weak';
+            if (password.length < 10) return 'medium';
+            return 'strong';
+        }
+        
+        // Form validation
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (username.length < 3) {
+                e.preventDefault();
+                alert('Username must be at least 3 characters long.');
+                return;
+            }
+            
+            if (password.length < 6) {
+                e.preventDefault();
+                alert('Password must be at least 6 characters long.');
+                return;
+            }
+            
+            if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+                e.preventDefault();
+                alert('Username can only contain letters, numbers, and underscores.');
+                return;
+            }
+        });
+    </script>
+</body>
+</html> 
