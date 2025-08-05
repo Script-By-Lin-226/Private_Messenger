@@ -993,8 +993,9 @@ def setup_admin():
                 return render_template('setup_admin.html')
             
             # Create admin user
+            from id_generation import generate_id
             admin_user = User(
-                id=generate_user_id(),
+                id=generate_id(),
                 username=username,
                 password_hash=hash_password(password),
                 is_admin=True,
