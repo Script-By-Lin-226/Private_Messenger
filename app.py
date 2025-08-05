@@ -45,8 +45,6 @@ if os.environ.get('VERCEL'):
     # Disable session cookies for serverless (use JWT or similar for production)
     app.config['SESSION_COOKIE_SECURE'] = False
     app.config['SESSION_COOKIE_HTTPONLY'] = False
-    # Use in-memory storage for rate limiting (not ideal for serverless)
-    rate_limit_storage = {}
 
 # Apply ProxyFix for proper IP detection behind proxies
 if os.environ.get('FLASK_ENV') == 'production' and not os.environ.get('VERCEL'):
@@ -54,14 +52,18 @@ if os.environ.get('FLASK_ENV') == 'production' and not os.environ.get('VERCEL'):
 
 db.init_app(app)
 
-# Rate limiting storage
+# Rate limiting storage (simplified for serverless)
 rate_limit_storage = {}
 
 def rate_limit(max_requests=5, window=60):
-    """Rate limiting decorator"""
+    """Rate limiting decorator (simplified for serverless)"""
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
+            # Skip rate limiting on Vercel for now to avoid issues
+            if os.environ.get('VERCEL'):
+                return f(*args, **kwargs)
+            
             # Get client IP
             client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
             if ',' in client_ip:
@@ -251,6 +253,11 @@ def index():
     if 'user_id' in session:
         return redirect(url_for('chat', user_id=session['user_id']))
     return redirect(url_for('login_page'))
+
+@app.route('/health')
+def health_check():
+    """Simple health check endpoint for Vercel"""
+    return jsonify({'status': 'healthy', 'message': 'Server is running'})
 
 @app.route('/login')
 def login_page():
@@ -714,6 +721,4 @@ def rate_limit_error(error):
     return jsonify({'error': 'Rate limit exceeded. Please try again later.'}), 429
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     app.run(debug=True)
