@@ -15,7 +15,25 @@ app = Flask(__name__)
 
 # Security Configuration
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL') or 'sqlite:///user_data.db'
+
+# Database configuration for Vercel compatibility
+def get_database_url():
+    """Get database URL with proper format for different environments"""
+    # For Vercel deployment, always use SQLite to avoid PostgreSQL build issues
+    if os.environ.get('VERCEL'):
+        return 'sqlite:///user_data.db'
+    
+    # For local development, use DATABASE_URL if provided
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url:
+        # Convert postgres:// to postgresql:// for compatibility
+        if database_url.startswith('postgres://'):
+            database_url = database_url.replace('postgres://', 'postgresql://', 1)
+        return database_url
+    
+    return 'sqlite:///user_data.db'
+
+app.config['SQLALCHEMY_DATABASE_URI'] = get_database_url()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'  # Only send cookies over HTTPS in production
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent XSS attacks
