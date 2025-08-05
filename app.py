@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
-from db_model import User, Message, Friend, db, SecurityLog
+from db_model import User, Message, Friend, db, SecurityLog, AdminAction, SystemSettings
 from id_generation import generate_id
 from functools import wraps
 import hashlib
@@ -9,6 +9,7 @@ import secrets
 import time
 import sys
 import traceback
+import base64
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -174,15 +175,54 @@ def login_required(f):
             flash('Invalid session. Please log in again.', 'error')
             return redirect(url_for('login_page'))
         
-        # Check if user still exists
+        # Check if user still exists and is active
         user = User.query.filter_by(id=user_id).first()
         if not user:
             session.clear()
             flash('User not found. Please log in again.', 'error')
             return redirect(url_for('login_page'))
         
+        if not user.is_active:
+            session.clear()
+            flash('Your account has been deactivated. Please contact an administrator.', 'error')
+            return redirect(url_for('login_page'))
+        
         return f(*args, **kwargs)
     return decorated_function
+
+# Admin required decorator
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Please log in to access this page.', 'error')
+            return redirect(url_for('login_page'))
+        
+        user = User.query.filter_by(id=session['user_id']).first()
+        if not user or not user.is_admin:
+            flash('Access denied. Admin privileges required.', 'error')
+            return redirect(url_for('index'))
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Permission required decorator
+def permission_required(permission):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'user_id' not in session:
+                flash('Please log in to access this page.', 'error')
+                return redirect(url_for('login_page'))
+            
+            user = User.query.filter_by(id=session['user_id']).first()
+            if not user or not user.has_permission(permission):
+                flash('Access denied. Insufficient permissions.', 'error')
+                return redirect(url_for('index'))
+            
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
 
 # Enhanced password hashing
 def hash_password(password):
@@ -247,6 +287,121 @@ def log_security_event(user_id, action, success=True, ip_address=None, user_agen
     except Exception as e:
         # Don't let logging errors break the application
         print(f"Security logging error: {e}")
+
+# Admin action logging
+def log_admin_action(admin_id, action_type, target_user_id=None, action_details=None):
+    """Log admin actions for audit trail"""
+    try:
+        ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+        if ',' in ip_address:
+            ip_address = ip_address.split(',')[0].strip()
+        
+        admin_action = AdminAction(
+            admin_id=admin_id,
+            target_user_id=target_user_id,
+            action_type=action_type,
+            action_details=action_details,
+            ip_address=ip_address
+        )
+        
+        db.session.add(admin_action)
+        db.session.commit()
+    except Exception as e:
+        print(f"Admin action logging error: {e}")
+
+# System settings management
+def get_system_setting(key, default=None):
+    """Get a system setting value"""
+    try:
+        setting = SystemSettings.query.filter_by(setting_key=key).first()
+        if setting:
+            return setting.setting_value
+        return default
+    except Exception as e:
+        print(f"Error getting system setting {key}: {e}")
+        return default
+
+def set_system_setting(key, value, setting_type='string', description=None, updated_by=None):
+    """Set a system setting value"""
+    try:
+        setting = SystemSettings.query.filter_by(setting_key=key).first()
+        if setting:
+            setting.setting_value = value
+            setting.setting_type = setting_type
+            if description:
+                setting.description = description
+            if updated_by:
+                setting.updated_by = updated_by
+        else:
+            setting = SystemSettings(
+                setting_key=key,
+                setting_value=value,
+                setting_type=setting_type,
+                description=description,
+                updated_by=updated_by
+            )
+            db.session.add(setting)
+        
+        db.session.commit()
+        return True
+    except Exception as e:
+        print(f"Error setting system setting {key}: {e}")
+        return False
+
+# Message encryption functions
+def get_encryption_key():
+    """Get or generate encryption key"""
+    key = get_system_setting('encryption_key')
+    if not key:
+        # Generate a new key
+        key = secrets.token_hex(32)
+        set_system_setting('encryption_key', key, 'string', 'Message encryption key')
+    return key
+
+def encrypt_message(message):
+    """Encrypt a message"""
+    try:
+        if not get_system_setting('enable_message_encryption', 'false') == 'true':
+            return message
+        
+        key = get_encryption_key()
+        
+        # Simple XOR encryption (for demonstration - use proper encryption in production)
+        encrypted = ''
+        for i, char in enumerate(message):
+            key_char = key[i % len(key)]
+            encrypted += chr(ord(char) ^ ord(key_char))
+        
+        # Add encryption indicator
+        return f"🔒{base64.b64encode(encrypted.encode()).decode()}"
+    except Exception as e:
+        print(f"Encryption error: {e}")
+        return message
+
+def decrypt_message(encrypted_message):
+    """Decrypt a message"""
+    try:
+        if not encrypted_message.startswith('🔒'):
+            return encrypted_message
+        
+        # Remove encryption indicator
+        encrypted_data = encrypted_message[1:]
+        
+        key = get_encryption_key()
+        
+        # Decode base64
+        encrypted = base64.b64decode(encrypted_data).decode()
+        
+        # Simple XOR decryption
+        decrypted = ''
+        for i, char in enumerate(encrypted):
+            key_char = key[i % len(key)]
+            decrypted += chr(ord(char) ^ ord(key_char))
+        
+        return decrypted
+    except Exception as e:
+        print(f"Decryption error: {e}")
+        return encrypted_message
 
 # Account lockout functionality
 def check_account_lockout(user):
@@ -566,9 +721,11 @@ def get_messages(other_user_id):
     
     message_list = []
     for msg in messages:
+        # Decrypt message content
+        decrypted_content = decrypt_message(msg.content)
         message_list.append({
             'id': msg.id,
-            'content': sanitize_input(msg.content),  # Sanitize content
+            'content': sanitize_input(decrypted_content),  # Sanitize content
             'sender_id': msg.sender_id,
             'receiver_id': msg.receiver_id,
             'timestamp': msg.timestamp.isoformat()
@@ -609,9 +766,12 @@ def send_message():
     # Sanitize message content
     sanitized_content = sanitize_input(content)
     
+    # Encrypt message if encryption is enabled
+    encrypted_content = encrypt_message(sanitized_content)
+    
     # Create new message
     message = Message(
-        content=sanitized_content,
+        content=encrypted_content,
         sender_id=session['user_id'],
         receiver_id=receiver_id
     )
@@ -651,9 +811,11 @@ def get_conversations():
         other_user_id = msg.sender_id if msg.sender_id != current_user_id else msg.receiver_id
         
         if other_user_id not in conversation_map:
+                        # Decrypt message for conversation list
+            decrypted_content = decrypt_message(msg.content)
             conversation_map[other_user_id] = {
                 'user_id': other_user_id,
-                'last_message': msg.content,
+                'last_message': decrypted_content,
                 'timestamp': msg.timestamp
             }
     
@@ -788,6 +950,506 @@ def get_friends():
             })
     
     return jsonify({'success': True, 'friends': friend_list})
+
+# Admin Dashboard Routes
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    """Admin dashboard main page"""
+    return render_template('admin_dashboard.html')
+
+@app.route('/admin/users')
+@admin_required
+def admin_users():
+    """Admin users management page"""
+    return render_template('admin_users.html')
+
+@app.route('/admin/messages')
+@admin_required
+def admin_messages():
+    """Admin messages management page"""
+    return render_template('admin_messages.html')
+
+@app.route('/admin/logs')
+@admin_required
+def admin_logs():
+    """Admin logs page"""
+    return render_template('admin_logs.html')
+
+@app.route('/admin/settings')
+@admin_required
+def admin_settings():
+    """Admin settings page"""
+    return render_template('admin_settings.html')
+
+# Admin API Routes
+@app.route('/api/admin/users')
+@admin_required
+def admin_get_users():
+    """Get all users for admin dashboard"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', '')
+        
+        query = User.query
+        
+        if search:
+            query = query.filter(User.username.contains(search))
+        
+        users = query.paginate(page=page, per_page=per_page, error_out=False)
+        
+        user_list = []
+        for user in users.items:
+            user_list.append({
+                'id': user.id,
+                'username': user.username,
+                'is_admin': user.is_admin,
+                'is_active': user.is_active,
+                'is_verified': user.is_verified,
+                'role': user.role,
+                'created_at': user.created_at.isoformat(),
+                'last_seen': user.last_seen.isoformat() if user.last_seen else None,
+                'is_online': user.is_online,
+                'login_attempts': user.login_attempts
+            })
+        
+        return jsonify({
+            'success': True,
+            'users': user_list,
+            'total': users.total,
+            'pages': users.pages,
+            'current_page': page
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/admin/user/<user_id>', methods=['GET', 'PUT', 'DELETE'])
+@admin_required
+def admin_manage_user(user_id):
+    """Manage a specific user"""
+    try:
+        user = User.query.filter_by(id=user_id).first()
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+        
+        if request.method == 'GET':
+            return jsonify({
+                'success': True,
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'is_admin': user.is_admin,
+                    'is_active': user.is_active,
+                    'is_verified': user.is_verified,
+                    'role': user.role,
+                    'permissions': user.permissions,
+                    'created_at': user.created_at.isoformat(),
+                    'last_seen': user.last_seen.isoformat() if user.last_seen else None,
+                    'login_attempts': user.login_attempts,
+                    'locked_until': user.locked_until.isoformat() if user.locked_until else None
+                }
+            })
+        
+        elif request.method == 'PUT':
+            data = request.get_json()
+            admin_id = session['user_id']
+            
+            # Update user fields
+            if 'is_admin' in data:
+                user.is_admin = data['is_admin']
+                log_admin_action(admin_id, 'update_user_admin', user_id, f"Admin status: {data['is_admin']}")
+            
+            if 'is_active' in data:
+                user.is_active = data['is_active']
+                log_admin_action(admin_id, 'update_user_status', user_id, f"Active status: {data['is_active']}")
+            
+            if 'role' in data:
+                user.role = data['role']
+                log_admin_action(admin_id, 'update_user_role', user_id, f"Role: {data['role']}")
+            
+            if 'permissions' in data:
+                user.permissions = data['permissions']
+                log_admin_action(admin_id, 'update_user_permissions', user_id, f"Permissions updated")
+            
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'User updated successfully'})
+        
+        elif request.method == 'DELETE':
+            admin_id = session['user_id']
+            
+            # Soft delete - deactivate user
+            user.is_active = False
+            db.session.commit()
+            
+            log_admin_action(admin_id, 'deactivate_user', user_id, 'User deactivated')
+            return jsonify({'success': True, 'message': 'User deactivated successfully'})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/admin/messages')
+@admin_required
+def admin_get_messages():
+    """Get messages for admin review"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        flagged_only = request.args.get('flagged_only', 'false').lower() == 'true'
+        
+        query = Message.query
+        
+        if flagged_only:
+            query = query.filter_by(is_flagged=True)
+        
+        messages = query.order_by(Message.timestamp.desc()).paginate(page=page, per_page=per_page, error_out=False)
+        
+        message_list = []
+        for msg in messages.items:
+            sender = User.query.filter_by(id=msg.sender_id).first()
+            receiver = User.query.filter_by(id=msg.receiver_id).first()
+            
+            message_list.append({
+                'id': msg.id,
+                'content': msg.content,
+                'sender': sender.username if sender else 'Unknown',
+                'receiver': receiver.username if receiver else 'Unknown',
+                'timestamp': msg.timestamp.isoformat(),
+                'is_flagged': msg.is_flagged,
+                'flagged_reason': msg.flagged_reason,
+                'is_deleted': msg.is_deleted
+            })
+        
+        return jsonify({
+            'success': True,
+            'messages': message_list,
+            'total': messages.total,
+            'pages': messages.pages,
+            'current_page': page
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/admin/message/<message_id>', methods=['PUT', 'DELETE'])
+@admin_required
+def admin_manage_message(message_id):
+    """Manage a specific message"""
+    try:
+        message = Message.query.filter_by(id=message_id).first()
+        if not message:
+            return jsonify({'success': False, 'error': 'Message not found'}), 404
+        
+        admin_id = session['user_id']
+        
+        if request.method == 'PUT':
+            data = request.get_json()
+            
+            if 'is_flagged' in data:
+                message.is_flagged = data['is_flagged']
+                if data['is_flagged']:
+                    message.flagged_reason = data.get('flagged_reason', 'Flagged by admin')
+                    message.flagged_by = admin_id
+                    message.flagged_at = datetime.utcnow()
+                    log_admin_action(admin_id, 'flag_message', message.sender_id, f"Message {message_id} flagged")
+                else:
+                    message.flagged_reason = None
+                    message.flagged_by = None
+                    message.flagged_at = None
+                    log_admin_action(admin_id, 'unflag_message', message.sender_id, f"Message {message_id} unflagged")
+            
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'Message updated successfully'})
+        
+        elif request.method == 'DELETE':
+            # Soft delete
+            message.is_deleted = True
+            db.session.commit()
+            
+            log_admin_action(admin_id, 'delete_message', message.sender_id, f"Message {message_id} deleted")
+            return jsonify({'success': True, 'message': 'Message deleted successfully'})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/admin/logs')
+@admin_required
+def admin_get_logs():
+    """Get admin action logs"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        log_type = request.args.get('type', 'all')  # all, security, admin
+        
+        if log_type == 'security':
+            query = SecurityLog.query
+        elif log_type == 'admin':
+            query = AdminAction.query
+        else:
+            # Return both types
+            security_logs = SecurityLog.query.order_by(SecurityLog.timestamp.desc()).limit(per_page//2).all()
+            admin_logs = AdminAction.query.order_by(AdminAction.timestamp.desc()).limit(per_page//2).all()
+            
+            log_list = []
+            for log in security_logs:
+                log_list.append({
+                    'type': 'security',
+                    'id': log.id,
+                    'user_id': log.user_id,
+                    'action': log.action,
+                    'timestamp': log.timestamp.isoformat(),
+                    'success': log.success,
+                    'ip_address': log.ip_address
+                })
+            
+            for log in admin_logs:
+                log_list.append({
+                    'type': 'admin',
+                    'id': log.id,
+                    'admin_id': log.admin_id,
+                    'target_user_id': log.target_user_id,
+                    'action_type': log.action_type,
+                    'timestamp': log.timestamp.isoformat(),
+                    'ip_address': log.ip_address
+                })
+            
+            # Sort by timestamp
+            log_list.sort(key=lambda x: x['timestamp'], reverse=True)
+            
+            return jsonify({
+                'success': True,
+                'logs': log_list[:per_page],
+                'total': len(log_list),
+                'current_page': page
+            })
+        
+        logs = query.order_by(query.column.timestamp.desc()).paginate(page=page, per_page=per_page, error_out=False)
+        
+        log_list = []
+        for log in logs.items:
+            if log_type == 'security':
+                log_list.append({
+                    'type': 'security',
+                    'id': log.id,
+                    'user_id': log.user_id,
+                    'action': log.action,
+                    'timestamp': log.timestamp.isoformat(),
+                    'success': log.success,
+                    'ip_address': log.ip_address
+                })
+            else:
+                log_list.append({
+                    'type': 'admin',
+                    'id': log.id,
+                    'admin_id': log.admin_id,
+                    'target_user_id': log.target_user_id,
+                    'action_type': log.action_type,
+                    'timestamp': log.timestamp.isoformat(),
+                    'ip_address': log.ip_address
+                })
+        
+        return jsonify({
+            'success': True,
+            'logs': log_list,
+            'total': logs.total,
+            'pages': logs.pages,
+            'current_page': page
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/admin/stats')
+@admin_required
+def admin_get_stats():
+    """Get system statistics"""
+    try:
+        total_users = User.query.count()
+        active_users = User.query.filter_by(is_active=True).count()
+        online_users = User.query.filter_by(is_online=True).count()
+        total_messages = Message.query.count()
+        flagged_messages = Message.query.filter_by(is_flagged=True).count()
+        total_friendships = Friend.query.count()
+        pending_friendships = Friend.query.filter_by(status='pending').count()
+        
+        # Recent activity
+        recent_users = User.query.order_by(User.created_at.desc()).limit(5).all()
+        recent_messages = Message.query.order_by(Message.timestamp.desc()).limit(5).all()
+        
+        return jsonify({
+            'success': True,
+            'stats': {
+                'total_users': total_users,
+                'active_users': active_users,
+                'online_users': online_users,
+                'total_messages': total_messages,
+                'flagged_messages': flagged_messages,
+                'total_friendships': total_friendships,
+                'pending_friendships': pending_friendships
+            },
+            'recent_users': [
+                {
+                    'id': user.id,
+                    'username': user.username,
+                    'created_at': user.created_at.isoformat()
+                } for user in recent_users
+            ],
+            'recent_messages': [
+                {
+                    'id': msg.id,
+                    'content': msg.content[:50] + '...' if len(msg.content) > 50 else msg.content,
+                    'timestamp': msg.timestamp.isoformat()
+                } for msg in recent_messages
+            ]
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/admin/settings', methods=['GET', 'POST'])
+@admin_required
+def admin_settings_api():
+    """Get or update system settings"""
+    try:
+        if request.method == 'GET':
+            # Get all system settings
+            settings = SystemSettings.query.all()
+            settings_dict = {}
+            for setting in settings:
+                settings_dict[setting.setting_key] = setting.setting_value
+            
+            return jsonify({
+                'success': True,
+                'settings': settings_dict
+            })
+        
+        elif request.method == 'POST':
+            data = request.get_json()
+            admin_id = session['user_id']
+            
+            # Update settings
+            for key, value in data.items():
+                set_system_setting(key, str(value), updated_by=admin_id)
+            
+            log_admin_action(admin_id, 'update_settings', action_details=f"Updated settings: {list(data.keys())}")
+            
+            return jsonify({
+                'success': True,
+                'message': 'Settings updated successfully'
+            })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/admin/clear-logs', methods=['POST'])
+@admin_required
+def admin_clear_logs():
+    """Clear all system logs"""
+    try:
+        admin_id = session['user_id']
+        
+        # Clear security logs
+        SecurityLog.query.delete()
+        
+        # Clear admin action logs
+        AdminAction.query.delete()
+        
+        db.session.commit()
+        
+        log_admin_action(admin_id, 'clear_logs', action_details='All logs cleared')
+        
+        return jsonify({
+            'success': True,
+            'message': 'All logs cleared successfully'
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/admin/reset-settings', methods=['POST'])
+@admin_required
+def admin_reset_settings():
+    """Reset all settings to defaults"""
+    try:
+        admin_id = session['user_id']
+        
+        # Delete all settings
+        SystemSettings.query.delete()
+        db.session.commit()
+        
+        # Reinitialize default settings
+        from create_admin import initialize_system_settings
+        initialize_system_settings()
+        
+        log_admin_action(admin_id, 'reset_settings', action_details='All settings reset to defaults')
+        
+        return jsonify({
+            'success': True,
+            'message': 'Settings reset to defaults successfully'
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/admin/export-data')
+@admin_required
+def admin_export_data():
+    """Export system data"""
+    try:
+        from flask import send_file
+        import json
+        import tempfile
+        
+        # Collect system data
+        data = {
+            'export_date': datetime.utcnow().isoformat(),
+            'users': [],
+            'messages': [],
+            'settings': []
+        }
+        
+        # Export users (without passwords)
+        users = User.query.all()
+        for user in users:
+            data['users'].append({
+                'id': user.id,
+                'username': user.username,
+                'is_admin': user.is_admin,
+                'is_active': user.is_active,
+                'role': user.role,
+                'created_at': user.created_at.isoformat(),
+                'last_seen': user.last_seen.isoformat() if user.last_seen else None
+            })
+        
+        # Export messages
+        messages = Message.query.all()
+        for msg in messages:
+            data['messages'].append({
+                'id': msg.id,
+                'content': msg.content,
+                'sender_id': msg.sender_id,
+                'receiver_id': msg.receiver_id,
+                'timestamp': msg.timestamp.isoformat(),
+                'is_flagged': msg.is_flagged,
+                'is_deleted': msg.is_deleted
+            })
+        
+        # Export settings
+        settings = SystemSettings.query.all()
+        for setting in settings:
+            data['settings'].append({
+                'key': setting.setting_key,
+                'value': setting.setting_value,
+                'type': setting.setting_type,
+                'description': setting.description
+            })
+        
+        # Create temporary file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(data, f, indent=2)
+            temp_file = f.name
+        
+        return send_file(temp_file, as_attachment=True, download_name=f'system-export-{datetime.now().strftime("%Y%m%d")}.json')
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # Error handlers with security
 @app.errorhandler(404)

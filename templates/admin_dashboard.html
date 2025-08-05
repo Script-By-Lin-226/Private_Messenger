@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Private Messenger</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .admin-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .admin-nav {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .admin-nav a {
+            background: #f8f9fa;
+            padding: 12px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #333;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .admin-nav a:hover {
+            background: #e9ecef;
+            border-color: #667eea;
+        }
+        
+        .admin-nav a.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .recent-activity {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .activity-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .activity-card h3 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .activity-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+        
+        .activity-time {
+            color: #666;
+            font-size: 0.8em;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>🔧 Admin Dashboard</h1>
+            <p>Manage users, messages, and system settings</p>
+        </div>
+        
+        <div class="admin-nav">
+            <a href="/admin" class="active">Dashboard</a>
+            <a href="/admin/users">Users</a>
+            <a href="/admin/messages">Messages</a>
+            <a href="/admin/logs">Logs</a>
+            <a href="/admin/settings">Settings</a>
+            <a href="/" style="margin-left: auto;">← Back to App</a>
+        </div>
+        
+        <div id="alerts"></div>
+        
+        <div class="stats-grid" id="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="total-users">-</div>
+                <div class="stat-label">Total Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="active-users">-</div>
+                <div class="stat-label">Active Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="online-users">-</div>
+                <div class="stat-label">Online Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="total-messages">-</div>
+                <div class="stat-label">Total Messages</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="flagged-messages">-</div>
+                <div class="stat-label">Flagged Messages</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="pending-friendships">-</div>
+                <div class="stat-label">Pending Friendships</div>
+            </div>
+        </div>
+        
+        <div class="recent-activity">
+            <div class="activity-card">
+                <h3>Recent Users</h3>
+                <div id="recent-users">
+                    <p>Loading...</p>
+                </div>
+            </div>
+            <div class="activity-card">
+                <h3>Recent Messages</h3>
+                <div id="recent-messages">
+                    <p>Loading...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Load admin dashboard data
+        async function loadDashboardData() {
+            try {
+                const response = await fetch('/api/admin/stats');
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update statistics
+                    document.getElementById('total-users').textContent = data.stats.total_users;
+                    document.getElementById('active-users').textContent = data.stats.active_users;
+                    document.getElementById('online-users').textContent = data.stats.online_users;
+                    document.getElementById('total-messages').textContent = data.stats.total_messages;
+                    document.getElementById('flagged-messages').textContent = data.stats.flagged_messages;
+                    document.getElementById('pending-friendships').textContent = data.stats.pending_friendships;
+                    
+                    // Update recent users
+                    const recentUsersHtml = data.recent_users.map(user => `
+                        <div class="activity-item">
+                            <strong>${user.username}</strong>
+                            <div class="activity-time">${new Date(user.created_at).toLocaleString()}</div>
+                        </div>
+                    `).join('');
+                    document.getElementById('recent-users').innerHTML = recentUsersHtml || '<p>No recent users</p>';
+                    
+                    // Update recent messages
+                    const recentMessagesHtml = data.recent_messages.map(msg => `
+                        <div class="activity-item">
+                            <div>${msg.content}</div>
+                            <div class="activity-time">${new Date(msg.timestamp).toLocaleString()}</div>
+                        </div>
+                    `).join('');
+                    document.getElementById('recent-messages').innerHTML = recentMessagesHtml || '<p>No recent messages</p>';
+                } else {
+                    showAlert('Error loading dashboard data: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error loading dashboard data: ' + error.message, 'error');
+            }
+        }
+        
+        function showAlert(message, type) {
+            const alertsDiv = document.getElementById('alerts');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.textContent = message;
+            alertsDiv.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        }
+        
+        // Load data on page load
+        document.addEventListener('DOMContentLoaded', loadDashboardData);
+        
+        // Refresh data every 30 seconds
+        setInterval(loadDashboardData, 30000);
+    </script>
+</body>
+</html> 

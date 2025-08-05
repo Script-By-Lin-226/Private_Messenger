@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Logs - Admin Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .admin-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .admin-nav {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .admin-nav a {
+            background: #f8f9fa;
+            padding: 12px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #333;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .admin-nav a:hover {
+            background: #e9ecef;
+            border-color: #667eea;
+        }
+        
+        .admin-nav a.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .filter-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .filter-bar select,
+        .filter-bar input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        .filter-bar button {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .logs-table {
+            width: 100%;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .logs-table th,
+        .logs-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .logs-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .log-type {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        
+        .log-security {
+            background: #e7f3ff;
+            color: #004085;
+        }
+        
+        .log-admin {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .log-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .log-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .log-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .pagination button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .pagination button.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .stats-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>📊 System Logs</h1>
+            <p>Monitor security events and admin actions</p>
+        </div>
+        
+        <div class="admin-nav">
+            <a href="/admin">Dashboard</a>
+            <a href="/admin/users">Users</a>
+            <a href="/admin/messages">Messages</a>
+            <a href="/admin/logs" class="active">Logs</a>
+            <a href="/admin/settings">Settings</a>
+            <a href="/" style="margin-left: auto;">← Back to App</a>
+        </div>
+        
+        <div id="alerts"></div>
+        
+        <div class="stats-cards">
+            <div class="stat-card">
+                <div class="stat-number" id="total-logs">-</div>
+                <div class="stat-label">Total Logs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="security-logs">-</div>
+                <div class="stat-label">Security Events</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="admin-logs">-</div>
+                <div class="stat-label">Admin Actions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="error-logs">-</div>
+                <div class="stat-label">Errors</div>
+            </div>
+        </div>
+        
+        <div class="filter-bar">
+            <select id="log-type">
+                <option value="all">All Logs</option>
+                <option value="security">Security Only</option>
+                <option value="admin">Admin Only</option>
+            </select>
+            <input type="text" id="search-input" placeholder="Search logs...">
+            <button onclick="loadLogs()">Filter</button>
+        </div>
+        
+        <div class="logs-table">
+            <table style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Action</th>
+                        <th>User</th>
+                        <th>IP Address</th>
+                        <th>Status</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody id="logs-tbody">
+                    <tr>
+                        <td colspan="6" style="text-align: center;">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="pagination" id="pagination"></div>
+    </div>
+    
+    <script>
+        let currentPage = 1;
+        let currentFilters = {
+            type: 'all',
+            search: ''
+        };
+        
+        async function loadLogs(page = 1) {
+            try {
+                const type = document.getElementById('log-type').value;
+                const search = document.getElementById('search-input').value;
+                
+                const url = `/api/admin/logs?page=${page}&type=${type}&search=${encodeURIComponent(search)}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayLogs(data.logs);
+                    displayPagination(data.current_page, data.pages);
+                    updateStats(data.logs);
+                } else {
+                    showAlert('Error loading logs: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error loading logs: ' + error.message, 'error');
+            }
+        }
+        
+        function displayLogs(logs) {
+            const tbody = document.getElementById('logs-tbody');
+            
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No logs found</td></tr>';
+                return;
+            }
+            
+            const html = logs.map(log => {
+                let typeClass = 'log-security';
+                let typeText = 'Security';
+                
+                if (log.type === 'admin') {
+                    typeClass = 'log-admin';
+                    typeText = 'Admin';
+                }
+                
+                let statusClass = 'log-success';
+                if (log.success === false) {
+                    statusClass = 'log-error';
+                }
+                
+                const action = log.type === 'security' ? log.action : log.action_type;
+                const user = log.type === 'security' ? (log.user_id || 'Anonymous') : (log.admin_id || 'System');
+                
+                return `
+                    <tr>
+                        <td>
+                            <span class="log-type ${typeClass}">${typeText}</span>
+                        </td>
+                        <td>${action}</td>
+                        <td>${user}</td>
+                        <td>${log.ip_address || 'N/A'}</td>
+                        <td>
+                            <span class="log-type ${statusClass}">
+                                ${log.success ? 'Success' : 'Failed'}
+                            </span>
+                        </td>
+                        <td>${new Date(log.timestamp).toLocaleString()}</td>
+                    </tr>
+                `;
+            }).join('');
+            
+            tbody.innerHTML = html;
+        }
+        
+        function displayPagination(currentPage, totalPages) {
+            const pagination = document.getElementById('pagination');
+            let html = '';
+            
+            if (totalPages > 1) {
+                if (currentPage > 1) {
+                    html += `<button onclick="loadLogs(${currentPage - 1})">Previous</button>`;
+                }
+                
+                for (let i = 1; i <= totalPages; i++) {
+                    if (i === currentPage) {
+                        html += `<button class="active">${i}</button>`;
+                    } else {
+                        html += `<button onclick="loadLogs(${i})">${i}</button>`;
+                    }
+                }
+                
+                if (currentPage < totalPages) {
+                    html += `<button onclick="loadLogs(${currentPage + 1})">Next</button>`;
+                }
+            }
+            
+            pagination.innerHTML = html;
+        }
+        
+        function updateStats(logs) {
+            const totalLogs = logs.length;
+            const securityLogs = logs.filter(log => log.type === 'security').length;
+            const adminLogs = logs.filter(log => log.type === 'admin').length;
+            const errorLogs = logs.filter(log => log.success === false).length;
+            
+            document.getElementById('total-logs').textContent = totalLogs;
+            document.getElementById('security-logs').textContent = securityLogs;
+            document.getElementById('admin-logs').textContent = adminLogs;
+            document.getElementById('error-logs').textContent = errorLogs;
+        }
+        
+        function showAlert(message, type) {
+            const alertsDiv = document.getElementById('alerts');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.textContent = message;
+            alertsDiv.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        }
+        
+        // Load logs on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadLogs();
+        });
+        
+        // Filter on Enter key
+        document.getElementById('search-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                loadLogs();
+            }
+        });
+        
+        // Auto-refresh logs every 30 seconds
+        setInterval(() => {
+            loadLogs(currentPage);
+        }, 30000);
+    </script>
+</body>
+</html> 
