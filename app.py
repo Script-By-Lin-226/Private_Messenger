@@ -16,14 +16,14 @@ app = Flask(__name__)
 # Security Configuration
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
 
-# Database configuration for Vercel compatibility
+# Database configuration for production compatibility
 def get_database_url():
     """Get database URL with proper format for different environments"""
-    # For Vercel deployment, always use SQLite to avoid PostgreSQL build issues
+    # For Vercel deployment, use SQLite to avoid PostgreSQL build issues
     if os.environ.get('VERCEL'):
         return 'sqlite:///user_data.db'
     
-    # For local development, use DATABASE_URL if provided
+    # For production deployments, use DATABASE_URL if provided
     database_url = os.environ.get('DATABASE_URL')
     if database_url:
         # Convert postgres:// to postgresql:// for compatibility
@@ -31,6 +31,7 @@ def get_database_url():
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
         return database_url
     
+    # Fallback to SQLite for local development
     return 'sqlite:///user_data.db'
 
 app.config['SQLALCHEMY_DATABASE_URI'] = get_database_url()
