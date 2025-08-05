@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PChat - Register</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="auth-wrapper">
+        <div class="auth-card">
+            
+            
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Registration Form -->
+            <form class="auth-form" action="{{ url_for('register') }}" method="POST">
+                <h2>Create Account</h2>
+                <p class="form-subtitle">Join PChat today</p>
+                
+                <div class="form-group">
+                    <input type="text" id="register-username" name="username" placeholder="Username" required>
+                </div>
+                
+                <div class="form-group">
+                    <input type="password" id="register-password" name="password" placeholder="Password" required>
+                </div>
+                
+                <div class="form-group">
+                    <input type="password" id="confirm-password" name="confirm_password" placeholder="Confirm Password" required>
+                </div>
+                
+                <button type="submit" class="btn-primary">Create Account</button>
+                
+                <div class="form-footer">
+                    <p>Already have an account? <a href="{{ url_for('login_page') }}" class="link">Sign in</a></p>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Password confirmation validation
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const password = document.getElementById('register-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            
+            if (password !== confirmPassword) {
+                e.preventDefault();
+                alert('Passwords do not match!');
+                return false;
+            }
+        });
+    </script>
+</body>
+</html> 

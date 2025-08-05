@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Private Messenger</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="auth-wrapper">
+        <div class="auth-card">
+            <div class="brand">
+                <h1>PChat</h1>
+                <p class="tagline">Secure Private Messaging</p>
+            </div>
+            <div class="welcome-content">
+                <p>Please <a href="{{ url_for('login_page') }}" class="link">login</a> or <a href="{{ url_for('register_page') }}" class="link">register</a> to continue.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 
