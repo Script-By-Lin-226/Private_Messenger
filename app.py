@@ -997,7 +997,7 @@ def setup_admin():
             admin_user = User(
                 id=generate_id(),
                 username=username,
-                password_hash=hash_password(password),
+                password=hash_password(password),
                 is_admin=True,
                 is_active=True,
                 is_verified=True,
