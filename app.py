@@ -7,6 +7,8 @@ import os
 import re
 import secrets
 import time
+import sys
+import traceback
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -52,6 +54,23 @@ if os.environ.get('FLASK_ENV') == 'production' and not os.environ.get('VERCEL'):
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 db.init_app(app)
+
+# Database initialization flag
+db_initialized = False
+
+def ensure_db_initialized():
+    """Ensure database tables are created"""
+    global db_initialized
+    if not db_initialized:
+        try:
+            with app.app_context():
+                db.create_all()
+                db_initialized = True
+                print("Database tables created successfully")
+        except Exception as e:
+            print(f"Database initialization failed: {e}")
+            import traceback
+            traceback.print_exc()
 
 # Rate limiting storage (simplified for serverless)
 rate_limit_storage = {}
@@ -251,14 +270,77 @@ def increment_login_attempts(user):
 
 @app.route('/')
 def index():
-    if 'user_id' in session:
-        return redirect(url_for('chat', user_id=session['user_id']))
-    return redirect(url_for('login_page'))
+    """Main route with database initialization"""
+    try:
+        ensure_db_initialized()
+        if 'user_id' in session:
+            return redirect(url_for('chat', user_id=session['user_id']))
+        return redirect(url_for('login_page'))
+    except Exception as e:
+        print(f"Error in index route: {e}")
+        return jsonify({'error': 'Database initialization failed'}), 500
 
 @app.route('/health')
 def health_check():
-    """Simple health check endpoint for Vercel"""
-    return jsonify({'status': 'healthy', 'message': 'Server is running'})
+    """Enhanced health check endpoint with database status"""
+    try:
+        # Test database connection
+        db.session.execute('SELECT 1')
+        db_status = 'connected'
+    except Exception as e:
+        db_status = f'error: {str(e)}'
+    
+    return jsonify({
+        'status': 'healthy', 
+        'message': 'Server is running',
+        'database': db_status,
+        'environment': os.environ.get('FLASK_ENV', 'development'),
+        'database_url': get_database_url()[:20] + '...' if len(get_database_url()) > 20 else get_database_url()
+    })
+
+@app.route('/debug')
+def debug_info():
+    """Debug endpoint to check environment and configuration"""
+    try:
+        ensure_db_initialized()
+        return jsonify({
+            'app_loaded': True,
+            'database_initialized': db_initialized,
+            'environment': os.environ.get('FLASK_ENV', 'development'),
+            'database_url': get_database_url(),
+            'secret_key_set': bool(app.config.get('SECRET_KEY')),
+            'vercel_env': bool(os.environ.get('VERCEL')),
+            'python_version': sys.version
+        })
+    except Exception as e:
+        return jsonify({
+            'app_loaded': True,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+@app.route('/emergency-debug')
+def emergency_debug():
+    """Emergency debug endpoint with full environment info"""
+    try:
+        return jsonify({
+            'status': 'emergency_debug',
+            'environment_vars': {k: v for k, v in os.environ.items() if 'KEY' not in k.upper() and 'PASSWORD' not in k.upper()},
+            'app_config': {k: v for k, v in app.config.items() if 'SECRET' not in k.upper()},
+            'working_dir': os.getcwd(),
+            'files_in_root': os.listdir('.'),
+            'python_version': sys.version,
+            'database_url': get_database_url(),
+            'vercel_env': bool(os.environ.get('VERCEL')),
+            'railway_env': bool(os.environ.get('RAILWAY_ENVIRONMENT')),
+            'render_env': bool(os.environ.get('RENDER'))
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'emergency_debug_error',
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
 
 @app.route('/login')
 def login_page():
@@ -714,8 +796,30 @@ def not_found_error(error):
 
 @app.errorhandler(500)
 def internal_error(error):
-    db.session.rollback()
-    return render_template('500.html'), 500
+    """Enhanced 500 error handler with debugging"""
+    import traceback
+    import sys
+    
+    # Log the error details
+    print(f"500 Error: {error}")
+    print("Traceback:")
+    traceback.print_exc()
+    
+    # Try to rollback database session if there's an active transaction
+    try:
+        db.session.rollback()
+    except Exception as e:
+        print(f"Database rollback failed: {e}")
+    
+    # Return a more informative error response
+    return jsonify({
+        'error': 'Internal server error',
+        'message': 'Something went wrong. Please try again.',
+        'debug_info': {
+            'error_type': str(type(error).__name__),
+            'error_message': str(error)
+        }
+    }), 500
 
 @app.errorhandler(429)
 def rate_limit_error(error):
