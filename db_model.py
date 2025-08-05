@@ -21,6 +21,7 @@ class User(db.Model):
     is_verified = db.Column(db.Boolean, default=False)
     role = db.Column(db.String(20), default='user')  # user, moderator, admin, super_admin
     permissions = db.Column(db.Text, nullable=True)  # JSON string of permissions
+    notes = db.Column(db.Text, nullable=True)  # Admin notes about the user
     
     def __repr__(self):
         return f'<User {self.username}>'

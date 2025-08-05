@@ -1023,11 +1023,54 @@ def setup_admin():
         return render_template('setup_admin.html')
 
 # Admin API Routes
-@app.route('/api/admin/users')
+@app.route('/api/admin/users', methods=['GET', 'POST'])
 @admin_required
 def admin_get_users():
-    """Get all users for admin dashboard"""
+    """Get all users for admin dashboard or create new user"""
     try:
+        if request.method == 'POST':
+            # Create new user
+            data = request.get_json()
+            admin_id = session['user_id']
+            
+            # Validate required fields
+            if not data.get('username') or not data.get('password'):
+                return jsonify({'success': False, 'error': 'Username and password are required'}), 400
+            
+            # Check if username already exists
+            if User.query.filter_by(username=data['username']).first():
+                return jsonify({'success': False, 'error': 'Username already exists'}), 400
+            
+            # Validate username
+            if not validate_username(data['username']):
+                return jsonify({'success': False, 'error': 'Invalid username format'}), 400
+            
+            # Create new user
+            from id_generation import generate_id
+            new_user = User(
+                id=generate_id(),
+                username=data['username'],
+                password=hash_password(data['password']),
+                role=data.get('role', 'user'),
+                is_admin=data.get('is_admin', False),
+                is_active=data.get('is_active', True),
+                is_verified=data.get('is_verified', False),
+                permissions=data.get('permissions', ''),
+                created_at=datetime.utcnow()
+            )
+            
+            db.session.add(new_user)
+            db.session.commit()
+            
+            log_admin_action(admin_id, 'create_user', new_user.id, f"Created user: {data['username']}")
+            
+            return jsonify({
+                'success': True, 
+                'message': f'User {data["username"]} created successfully',
+                'user_id': new_user.id
+            })
+        
+        # GET request - return users list
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 20, type=int)
         search = request.args.get('search', '')
@@ -1035,7 +1078,19 @@ def admin_get_users():
         query = User.query
         
         if search:
-            query = query.filter(User.username.contains(search))
+            # Enhanced search - search by username, role, or status
+            search_lower = search.lower()
+            query = query.filter(
+                db.or_(
+                    User.username.contains(search),
+                    User.role.contains(search_lower),
+                    db.case(
+                        (User.is_active == True, 'active'),
+                        (User.is_active == False, 'inactive'),
+                        else_='unknown'
+                    ).contains(search_lower)
+                )
+            )
         
         users = query.paginate(page=page, per_page=per_page, error_out=False)
         
@@ -1048,10 +1103,12 @@ def admin_get_users():
                 'is_active': user.is_active,
                 'is_verified': user.is_verified,
                 'role': user.role,
+                'permissions': user.permissions,
                 'created_at': user.created_at.isoformat(),
                 'last_seen': user.last_seen.isoformat() if user.last_seen else None,
                 'is_online': user.is_online,
-                'login_attempts': user.login_attempts
+                'login_attempts': user.login_attempts,
+                'notes': getattr(user, 'notes', '')  # Add notes field if it exists
             })
         
         return jsonify({
@@ -1104,6 +1161,10 @@ def admin_manage_user(user_id):
                 user.is_active = data['is_active']
                 log_admin_action(admin_id, 'update_user_status', user_id, f"Active status: {data['is_active']}")
             
+            if 'is_verified' in data:
+                user.is_verified = data['is_verified']
+                log_admin_action(admin_id, 'update_user_verified', user_id, f"Verified status: {data['is_verified']}")
+            
             if 'role' in data:
                 user.role = data['role']
                 log_admin_action(admin_id, 'update_user_role', user_id, f"Role: {data['role']}")
@@ -1112,18 +1173,29 @@ def admin_manage_user(user_id):
                 user.permissions = data['permissions']
                 log_admin_action(admin_id, 'update_user_permissions', user_id, f"Permissions updated")
             
+            if 'password' in data and data['password']:
+                user.password = hash_password(data['password'])
+                log_admin_action(admin_id, 'update_user_password', user_id, "Password updated")
+            
+            if 'notes' in data:
+                # Add notes field if it doesn't exist in the model
+                if hasattr(user, 'notes'):
+                    user.notes = data['notes']
+                    log_admin_action(admin_id, 'update_user_notes', user_id, "Notes updated")
+            
             db.session.commit()
             return jsonify({'success': True, 'message': 'User updated successfully'})
         
         elif request.method == 'DELETE':
             admin_id = session['user_id']
             
-            # Soft delete - deactivate user
-            user.is_active = False
+            # Hard delete - remove user completely
+            username = user.username
+            db.session.delete(user)
             db.session.commit()
             
-            log_admin_action(admin_id, 'deactivate_user', user_id, 'User deactivated')
-            return jsonify({'success': True, 'message': 'User deactivated successfully'})
+            log_admin_action(admin_id, 'delete_user', user_id, f'User {username} deleted permanently')
+            return jsonify({'success': True, 'message': f'User {username} deleted successfully'})
     
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -1302,13 +1374,37 @@ def admin_get_logs():
 def admin_get_stats():
     """Get system statistics"""
     try:
+        from datetime import datetime, timedelta
+        
+        # Basic counts
         total_users = User.query.count()
         active_users = User.query.filter_by(is_active=True).count()
+        admin_users = User.query.filter_by(is_admin=True).count()
         online_users = User.query.filter_by(is_online=True).count()
         total_messages = Message.query.count()
         flagged_messages = Message.query.filter_by(is_flagged=True).count()
         total_friendships = Friend.query.count()
         pending_friendships = Friend.query.filter_by(status='pending').count()
+        
+        # Time-based statistics
+        one_month_ago = datetime.utcnow() - timedelta(days=30)
+        new_users_month = User.query.filter(User.created_at >= one_month_ago).count()
+        
+        one_week_ago = datetime.utcnow() - timedelta(days=7)
+        new_users_week = User.query.filter(User.created_at >= one_week_ago).count()
+        
+        today = datetime.utcnow().date()
+        new_users_today = User.query.filter(
+            db.func.date(User.created_at) == today
+        ).count()
+        
+        # Role distribution
+        role_stats = db.session.query(
+            User.role, 
+            db.func.count(User.id)
+        ).group_by(User.role).all()
+        
+        role_distribution = {role: count for role, count in role_stats}
         
         # Recent activity
         recent_users = User.query.order_by(User.created_at.desc()).limit(5).all()
@@ -1319,11 +1415,16 @@ def admin_get_stats():
             'stats': {
                 'total_users': total_users,
                 'active_users': active_users,
+                'admin_users': admin_users,
                 'online_users': online_users,
+                'new_users_month': new_users_month,
+                'new_users_week': new_users_week,
+                'new_users_today': new_users_today,
                 'total_messages': total_messages,
                 'flagged_messages': flagged_messages,
                 'total_friendships': total_friendships,
-                'pending_friendships': pending_friendships
+                'pending_friendships': pending_friendships,
+                'role_distribution': role_distribution
             },
             'recent_users': [
                 {
