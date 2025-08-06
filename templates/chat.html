@@ -128,24 +128,9 @@
                 </div>
                 
                 <div class="chat-input">
-                    <form id="message-form" enctype="multipart/form-data">
-                        <div class="input-container">
-                            <img src="{{ url_for('static', filename='icons/chat-icon-96x96.png') }}" alt="PChat Logo" class="chat-logo">
-                            <input type="text" id="message-input" placeholder="Type your message...">
-                            <input type="file" id="file-input" accept="image/*,application/pdf,.doc,.docx,.txt,.zip,.rar" style="display: none;">
-                            <button type="button" id="attach-btn" class="btn-attach" title="Attach file">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
-                                </svg>
-                            </button>
-                            <button type="submit" class="btn-send">Send</button>
-                        </div>
-                        <div id="file-preview" class="file-preview" style="display: none;">
-                            <div class="file-preview-content">
-                                <span id="file-name"></span>
-                                <button type="button" id="remove-file" class="btn-remove-file">&times;</button>
-                            </div>
-                        </div>
+                    <form id="message-form">
+                        <input type="text" id="message-input" placeholder="Type your message..." required>
+                        <button type="submit" class="btn-send">Send</button>
                     </form>
                 </div>
             </div>
@@ -330,24 +315,9 @@
                     </div>
                 </div>
                 <div class="chat-input">
-                    <form id="message-form" enctype="multipart/form-data">
-                        <div class="input-container">
-                            <img src="{{ url_for('static', filename='icons/chat-icon-96x96.png') }}" alt="PChat Logo" class="chat-logo">
-                            <input type="text" id="message-input" placeholder="Type your message...">
-                            <input type="file" id="file-input" accept="image/*,application/pdf,.doc,.docx,.txt,.zip,.rar" style="display: none;">
-                            <button type="button" id="attach-btn" class="btn-attach" title="Attach file">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
-                                </svg>
-                            </button>
-                            <button type="submit" class="btn-send">Send</button>
-                        </div>
-                        <div id="file-preview" class="file-preview" style="display: none;">
-                            <div class="file-preview-content">
-                                <span id="file-name"></span>
-                                <button type="button" id="remove-file" class="btn-remove-file">&times;</button>
-                            </div>
-                        </div>
+                    <form id="message-form">
+                        <input type="text" id="message-input" placeholder="Type your message..." required>
+                        <button type="submit" class="btn-send">Send</button>
                     </form>
                 </div>
             `;
@@ -360,9 +330,6 @@
             
             // Reattach event listener
             document.getElementById('message-form').addEventListener('submit', handleMessageSubmit);
-            
-            // Initialize file handling
-            initFileHandling();
             
             // Close sidebar on mobile
             if (window.innerWidth <= 768) {
@@ -387,24 +354,9 @@
                     </div>
                 </div>
                 <div class="chat-input">
-                    <form id="message-form" enctype="multipart/form-data">
-                        <div class="input-container">
-                            <img src="{{ url_for('static', filename='icons/chat-icon-96x96.png') }}" alt="PChat Logo" class="chat-logo">
-                            <input type="text" id="message-input" placeholder="Type your message...">
-                            <input type="file" id="file-input" accept="image/*,application/pdf,.doc,.docx,.txt,.zip,.rar" style="display: none;">
-                            <button type="button" id="attach-btn" class="btn-attach" title="Attach file">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
-                                </svg>
-                            </button>
-                            <button type="submit" class="btn-send">Send</button>
-                        </div>
-                        <div id="file-preview" class="file-preview" style="display: none;">
-                            <div class="file-preview-content">
-                                <span id="file-name"></span>
-                                <button type="button" id="remove-file" class="btn-remove-file">&times;</button>
-                            </div>
-                        </div>
+                    <form id="message-form">
+                        <input type="text" id="message-input" placeholder="Type your message..." required>
+                        <button type="submit" class="btn-send">Send</button>
                     </form>
                 </div>
             `;
@@ -448,12 +400,46 @@
             });
         }
 
-        // Send message (legacy function for text-only messages)
+        // Send message
         function sendMessage(message) {
-            const formData = new FormData();
-            formData.append('receiver_id', currentChatUser.id);
-            formData.append('content', message);
-            sendMessageWithFile(formData);
+            if (!currentChatUser) {
+                console.error('No current chat user');
+                return;
+            }
+
+            const messageData = {
+                receiver_id: currentChatUser.id,
+                content: message
+            };
+
+            fetch('/api/send_message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(messageData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('Message sent successfully');
+                    
+                    // Update the temporary message with the real message ID
+                    const tempMessage = currentMessages.find(msg => msg.id.startsWith('temp_'));
+                    if (tempMessage) {
+                        tempMessage.id = data.message_id;
+                    }
+                    
+                    // Update conversations
+                    loadConversations();
+                } else {
+                    showMessageError(data.error || 'Failed to send message');
+                }
+            })
+            .catch(error => {
+                console.error('Error sending message:', error);
+                showMessageError('Network error. Please try again.');
+            });
         }
 
         // Handle message submit
@@ -463,133 +449,34 @@
             const messageInput = document.getElementById('message-input');
             const message = messageInput.value.trim();
             
-            // Check if we have either message or file
-            if ((!message && !selectedFile) || !currentChatUser) {
+            if (!message || !currentChatUser) {
                 return;
             }
 
             // Clear input immediately for better UX
             messageInput.value = '';
             
-            // Create FormData for file upload
-            const formData = new FormData();
-            formData.append('receiver_id', currentChatUser.id);
-            if (message) {
-                formData.append('content', message);
-            }
-            if (selectedFile) {
-                formData.append('file', selectedFile);
-            }
-            
             // Add message to UI immediately (optimistic update)
             const optimisticMessage = {
                 id: 'temp_' + Date.now(),
                 sender_id: '{{ user_id }}',
                 receiver_id: currentChatUser.id,
-                content: message || (selectedFile ? `📎 ${selectedFile.name}` : ''),
-                timestamp: new Date().toISOString(),
-                has_attachment: !!selectedFile,
-                attachment_original_name: selectedFile ? selectedFile.name : null
+                content: message,
+                timestamp: new Date().toISOString()
             };
             
             currentMessages.push(optimisticMessage);
             displayMessages(currentMessages);
             
-            // Clear file selection
-            removeSelectedFile();
-            
             // Send message to backend
-            sendMessageWithFile(formData);
+            sendMessage(message);
         }
 
-        // Image modal functions
-        function openImageModal(src, name) {
-            const modal = document.getElementById('imageModal') || createImageModal();
-            const modalImg = modal.querySelector('.modal-image');
-            const caption = modal.querySelector('.modal-caption');
-            
-            modalImg.src = src;
-            caption.textContent = name;
-            modal.style.display = 'block';
-        }
+        // Image modal functions (disabled)
+        // Image viewing functionality has been disabled
 
-        function createImageModal() {
-            const modal = document.createElement('div');
-            modal.id = 'imageModal';
-            modal.className = 'image-modal';
-            modal.innerHTML = `
-                <div class="modal-content">
-                    <span class="close" onclick="closeImageModal()">&times;</span>
-                    <img class="modal-image" src="" alt="">
-                    <div class="modal-caption"></div>
-                </div>
-            `;
-            document.body.appendChild(modal);
-            
-            // Close modal when clicking outside
-            modal.addEventListener('click', function(e) {
-                if (e.target === modal) {
-                    closeImageModal();
-                }
-            });
-            
-            return modal;
-        }
-
-        function closeImageModal() {
-            const modal = document.getElementById('imageModal');
-            if (modal) {
-                modal.style.display = 'none';
-            }
-        }
-
-        // File handling functions
-        let selectedFile = null;
-
-        function initFileHandling() {
-            const attachBtn = document.getElementById('attach-btn');
-            const fileInput = document.getElementById('file-input');
-            const filePreview = document.getElementById('file-preview');
-            const fileName = document.getElementById('file-name');
-            const removeFileBtn = document.getElementById('remove-file');
-
-            if (attachBtn) {
-                attachBtn.addEventListener('click', () => {
-                    fileInput.click();
-                });
-            }
-
-            if (fileInput) {
-                fileInput.addEventListener('change', handleFileSelect);
-            }
-
-            if (removeFileBtn) {
-                removeFileBtn.addEventListener('click', removeSelectedFile);
-            }
-        }
-
-        function handleFileSelect(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            // File size limit (10MB)
-            const maxSize = 10 * 1024 * 1024;
-            if (file.size > maxSize) {
-                alert('File size must be less than 10MB');
-                event.target.value = '';
-                return;
-            }
-
-            selectedFile = file;
-            document.getElementById('file-name').textContent = file.name;
-            document.getElementById('file-preview').style.display = 'block';
-        }
-
-        function removeSelectedFile() {
-            selectedFile = null;
-            document.getElementById('file-input').value = '';
-            document.getElementById('file-preview').style.display = 'none';
-        }
+        // File handling functions (disabled)
+        // Attachment functionality has been disabled
 
         // Show message error or success
         function showMessageError(message, type = 'error') {
@@ -663,37 +550,8 @@
                 messageDiv.className = `message ${isSentByMe ? 'sent' : 'received'}`;
                 
                 const messageTime = formatMessageTime(message.timestamp);
-                
-                let messageContent = '';
-                if (message.content) {
-                    messageContent = `<p>${escapeHtml(message.content)}</p>`;
-                }
-                
-                if (message.has_attachment) {
-                    const attachmentName = message.attachment_original_name || 'Unknown file';
-                    const isImage = message.attachment_type === 'image';
-                    
-                    if (isImage) {
-                        messageContent += `
-                            <div class="attachment-preview">
-                                <img src="/static/uploads/${message.attachment_filename}" alt="${escapeHtml(attachmentName)}" 
-                                     onclick="openImageModal(this.src, '${escapeHtml(attachmentName)}')" style="max-width: 200px; max-height: 200px; cursor: pointer; border-radius: 8px;">
-                                <p class="attachment-name">📷 ${escapeHtml(attachmentName)}</p>
-                            </div>
-                        `;
-                    } else {
-                        messageContent += `
-                            <div class="attachment-preview">
-                                <a href="/static/uploads/${message.attachment_filename}" download="${escapeHtml(attachmentName)}" class="attachment-link">
-                                    📎 ${escapeHtml(attachmentName)}
-                                </a>
-                            </div>
-                        `;
-                    }
-                }
-                
                 messageDiv.innerHTML = `
-                    ${messageContent}
+                    <p>${escapeHtml(message.content)}</p>
                     <span class="message-time">${messageTime}</span>
                 `;
                 
@@ -947,9 +805,6 @@
             
             // Attach event listener
             document.getElementById('message-form').addEventListener('submit', handleMessageSubmit);
-            
-            // Initialize file handling
-            initFileHandling();
             
             // Mobile sidebar toggle
             const sidebarToggle = document.getElementById('sidebar-toggle');

@@ -605,22 +605,8 @@ body {
 
 .chat-input form {
     display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.input-container {
-    display: flex;
     gap: 0.5rem;
     align-items: center;
-}
-
-.chat-logo {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    object-fit: cover;
-    flex-shrink: 0;
 }
 
 .chat-input input {
