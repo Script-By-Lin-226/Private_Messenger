@@ -21,20 +21,11 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
 
 # Database configuration for production compatibility
 def get_database_url():
-    """Get database URL with proper format for different environments"""
-    # For Vercel deployment, use SQLite to avoid PostgreSQL build issues
-    if os.environ.get('VERCEL'):
-        return 'sqlite:///user_data.db'
-    
-    # For production deployments, use DATABASE_URL if provided
     database_url = os.environ.get('DATABASE_URL')
     if database_url:
-        # Convert postgres:// to postgresql:// for compatibility
         if database_url.startswith('postgres://'):
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
         return database_url
-    
-    # Fallback to SQLite for local development
     return 'sqlite:///user_data.db'
 
 app.config['SQLALCHEMY_DATABASE_URI'] = get_database_url()
@@ -44,14 +35,8 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent XSS attacks
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)  # Session timeout
 
-# Vercel-specific configuration
-if os.environ.get('VERCEL'):
-    # Disable session cookies for serverless (use JWT or similar for production)
-    app.config['SESSION_COOKIE_SECURE'] = False
-    app.config['SESSION_COOKIE_HTTPONLY'] = False
-
 # Apply ProxyFix for proper IP detection behind proxies
-if os.environ.get('FLASK_ENV') == 'production' and not os.environ.get('VERCEL'):
+if os.environ.get('FLASK_ENV') == 'production':
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 db.init_app(app)
@@ -440,7 +425,6 @@ def debug_info():
             'environment': os.environ.get('FLASK_ENV', 'development'),
             'database_url': get_database_url(),
             'secret_key_set': bool(app.config.get('SECRET_KEY')),
-            'vercel_env': bool(os.environ.get('VERCEL')),
             'python_version': sys.version
         })
     except Exception as e:
@@ -462,7 +446,6 @@ def emergency_debug():
             'files_in_root': os.listdir('.'),
             'python_version': sys.version,
             'database_url': get_database_url(),
-            'vercel_env': bool(os.environ.get('VERCEL')),
             'railway_env': bool(os.environ.get('RAILWAY_ENVIRONMENT')),
             'render_env': bool(os.environ.get('RENDER'))
         })

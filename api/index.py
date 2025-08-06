@@ -32,5 +32,4 @@ def handle_exception(e):
     traceback.print_exc()
     return jsonify({'error': 'Internal server error'}), 500
 
-# This is the entry point for Vercel serverless functions
-# Vercel will automatically detect this as a Python function 
+# This is the entry point for serverless functions 
