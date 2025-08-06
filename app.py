@@ -1723,4 +1723,6 @@ def internal_error(error):
 # Rate limit error handler removed - no longer needed
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    with app.app_context():
+        ensure_db_initialized()
+    app.run(debug=True, port=5001)
