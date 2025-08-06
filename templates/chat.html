@@ -136,12 +136,15 @@
             </div>
         </div>
     </div>
+    <!-- Notification Sound -->
+    <audio id="noti-audio" src="{{ url_for('static', filename='notify.mp3') }}" preload="auto"></audio>
 
     <script>
         let currentChatUser = null;
         let conversations = [];
         let currentMessages = [];
         let isUpdating = false;
+        let lastMessageId = null;
 
         // Mobile sidebar toggle
         function toggleSidebar() {
@@ -468,6 +471,23 @@
                 })
                 .then(data => {
                     if (data.success) {
+                        // Check for new incoming message
+                        if (data.messages && data.messages.length > 0) {
+                            const latestMsg = data.messages[data.messages.length - 1];
+                            if (
+                                lastMessageId !== null &&
+                                latestMsg.id !== lastMessageId &&
+                                latestMsg.sender_id !== '{{ user_id }}'
+                            ) {
+                                // Play notification sound
+                                const audio = document.getElementById('noti-audio');
+                                if (audio) {
+                                    audio.currentTime = 0;
+                                    audio.play();
+                                }
+                            }
+                            lastMessageId = latestMsg.id;
+                        }
                         currentMessages = data.messages;
                         displayMessages(data.messages);
                     }

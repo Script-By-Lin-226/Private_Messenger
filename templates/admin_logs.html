@@ -5,48 +5,115 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Logs - Admin Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #4f46e5;
+            --primary-dark: #3730a3;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --info-color: #3b82f6;
+            --light-bg: #f8fafc;
+            --border-color: #e2e8f0;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow-y: scroll;
+        }
         .admin-container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             padding: 20px;
         }
-        
         .admin-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            color: var(--text-primary);
+            padding: 30px;
+            border-radius: 20px;
             margin-bottom: 30px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
-        
+        .admin-header h1 {
+            margin: 0 0 10px 0;
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .admin-header p {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
         .admin-nav {
             display: flex;
             gap: 15px;
             margin-bottom: 30px;
             flex-wrap: wrap;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
-        
         .admin-nav a {
-            background: #f8f9fa;
+            background: var(--light-bg);
             padding: 12px 20px;
-            border-radius: 8px;
+            border-radius: 12px;
             text-decoration: none;
-            color: #333;
+            color: var(--text-primary);
             border: 2px solid transparent;
             transition: all 0.3s ease;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
-        
         .admin-nav a:hover {
-            background: #e9ecef;
-            border-color: #667eea;
-        }
-        
-        .admin-nav a.active {
-            background: #667eea;
+            background: var(--primary-color);
             color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
         }
-        
+        .admin-nav a.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-dark);
+        }
+        .stats-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
         .filter-bar {
             display: flex;
             gap: 10px;
@@ -54,158 +121,96 @@
             align-items: center;
             flex-wrap: wrap;
         }
-        
         .filter-bar select,
         .filter-bar input {
             padding: 8px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--border-color);
             border-radius: 5px;
         }
-        
         .filter-bar button {
             padding: 8px 16px;
-            background: #667eea;
+            background: var(--primary-color);
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
         }
-        
         .logs-table {
             width: 100%;
             background: white;
-            border-radius: 10px;
+            border-radius: 15px;
             overflow: hidden;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        
         .logs-table th,
         .logs-table td {
             padding: 12px;
             text-align: left;
             border-bottom: 1px solid #eee;
         }
-        
         .logs-table th {
-            background: #f8f9fa;
+            background: var(--light-bg);
             font-weight: bold;
         }
-        
         .log-type {
             padding: 4px 8px;
             border-radius: 12px;
             font-size: 0.8em;
             font-weight: bold;
         }
-        
-        .log-security {
-            background: #e7f3ff;
-            color: #004085;
-        }
-        
-        .log-admin {
-            background: #d4edda;
-            color: #155724;
-        }
-        
-        .log-success {
-            background: #d4edda;
-            color: #155724;
-        }
-        
-        .log-error {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        
-        .log-warning {
-            background: #fff3cd;
-            color: #856404;
-        }
-        
+        .log-security { background: #e7f3ff; color: #004085; }
+        .log-admin, .log-success { background: #d4edda; color: #155724; }
+        .log-error { background: #f8d7da; color: #721c24; }
+        .log-warning { background: #fff3cd; color: #856404; }
         .pagination {
             display: flex;
             justify-content: center;
             gap: 10px;
             margin-top: 20px;
         }
-        
         .pagination button {
             padding: 8px 12px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--border-color);
             background: white;
             cursor: pointer;
+            border-radius: 5px;
         }
-        
         .pagination button.active {
-            background: #667eea;
+            background: var(--primary-color);
             color: white;
-            border-color: #667eea;
+            border-color: var(--primary-dark);
         }
-        
         .alert {
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
         }
-        
         .alert-success {
             background: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
         }
-        
         .alert-error {
             background: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
-        }
-        
-        .stats-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .stat-card {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-        
-        .stat-number {
-            font-size: 2em;
-            font-weight: bold;
-            color: #667eea;
-        }
-        
-        .stat-label {
-            color: #666;
-            font-size: 0.9em;
         }
     </style>
 </head>
 <body>
     <div class="admin-container">
         <div class="admin-header">
-            <h1>📊 System Logs</h1>
+            <h1><i class="fas fa-chart-bar"></i> System Logs</h1>
             <p>Monitor security events and admin actions</p>
         </div>
-        
         <div class="admin-nav">
-            <a href="/admin">Dashboard</a>
             <a href="/admin/users">Users</a>
             <a href="/admin/messages">Messages</a>
             <a href="/admin/logs" class="active">Logs</a>
             <a href="/admin/settings">Settings</a>
-            <a href="/" style="margin-left: auto;">← Back to App</a>
+            <a href="/" style="margin-left: auto;">&larr; Back to App</a>
         </div>
-        
         <div id="alerts"></div>
-        
         <div class="stats-cards">
             <div class="stat-card">
                 <div class="stat-number" id="total-logs">-</div>
@@ -224,7 +229,6 @@
                 <div class="stat-label">Errors</div>
             </div>
         </div>
-        
         <div class="filter-bar">
             <select id="log-type">
                 <option value="all">All Logs</option>
@@ -234,7 +238,6 @@
             <input type="text" id="search-input" placeholder="Search logs...">
             <button onclick="loadLogs()">Filter</button>
         </div>
-        
         <div class="logs-table">
             <table style="width: 100%;">
                 <thead>
@@ -254,10 +257,8 @@
                 </tbody>
             </table>
         </div>
-        
         <div class="pagination" id="pagination"></div>
     </div>
-    
     <script>
         let currentPage = 1;
         let currentFilters = {

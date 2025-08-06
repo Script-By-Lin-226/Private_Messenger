@@ -585,11 +585,10 @@
     <div class="admin-container">
         <div class="admin-header">
             <h1><i class="fas fa-users"></i> User Management</h1>
-            <p>Complete CRUD operations for user accounts with advanced search and professional interface</p>
+            <p style="color: grey;padding: auto;">For administrators only</p>
         </div>
         
         <div class="admin-nav">
-            <a href="/admin"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
             <a href="/admin/users" class="active"><i class="fas fa-users"></i> Users</a>
             <a href="/admin/messages"><i class="fas fa-comments"></i> Messages</a>
             <a href="/admin/logs"><i class="fas fa-list-alt"></i> Logs</a>
@@ -659,7 +658,7 @@
             </table>
         </div>
         
-        <div class="pagination" id="pagination"></div>
+        <div class="pagination" id="pagination">&copy; 2025 </div>
     </div>
     
     <!-- Edit User Modal -->
@@ -883,15 +882,15 @@
                         <td>
                             <div class="action-buttons">
                                 <button class="btn btn-sm btn-warning" onclick="editUser('${user.id}')" title="Edit User">
-                                    <i class="fas fa-edit"></i>
+                                    <i class="fas fa-edit">Edit User</i>
                                 </button>
                                 <button class="btn btn-sm ${user.is_active ? 'btn-danger' : 'btn-success'}" 
                                         onclick="toggleUserStatus('${user.id}', ${user.is_active})" 
                                         title="${user.is_active ? 'Deactivate' : 'Activate'} User">
-                                    <i class="fas fa-${user.is_active ? 'pause' : 'play'}"></i>
+                                    <i class="fas fa-${user.is_active ? 'pause' : 'play'}">Activate</i>
                                 </button>
                                 <button class="btn btn-sm btn-info" onclick="viewUserDetails('${user.id}')" title="View Details">
-                                    <i class="fas fa-eye"></i>
+                                    <i class="fas fa-eye">View Details</i>
                                 </button>
                             </div>
                         </td>
