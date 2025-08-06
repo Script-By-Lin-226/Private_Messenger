@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoChat - Chat</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Secure private messaging platform with admin dashboard">
+    <meta name="theme-color" content="#16213e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PrivateMsg">
+    
+    <!-- PWA Icons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/icon-96x96.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='icons/icon-96x96.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-152x152.png') }}">
+    <link rel="apple-touch-icon" sizes="152x152" href="{{ url_for('static', filename='icons/icon-152x152.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/icon-192x192.png') }}">
+    <link rel="apple-touch-icon" sizes="167x167" href="{{ url_for('static', filename='icons/icon-152x152.png') }}">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="chat-container">
+        <!-- Mobile Header -->
+        <div class="mobile-header">
+            <div class="mobile-header-left">
+                <button id="sidebar-toggle" class="sidebar-toggle-btn">
+                    <span class="hamburger-icon">☰</span>
+                </button>
+                <h1>CryptoChat</h1>
+            </div>
+            <div class="mobile-header-right">
+                <button id="dark-mode-toggle" class="dark-mode-btn" onclick="toggleDarkMode()">
+                    <span class="dark-mode-icon">🌙</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Desktop Header (hidden on mobile) -->
+        <div class="desktop-header">
+            <h1>CryptoChat</h1>
+            <button id="dark-mode-toggle-desktop" class="dark-mode-btn" onclick="toggleDarkMode()">
+                <span class="dark-mode-icon">🌙</span>
+            </button>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="chat-layout">
+            <!-- Sidebar -->
+            <div class="chat-sidebar" id="chat-sidebar">
+                <div class="sidebar-section">
+                    <h3>Your ID</h3>
+                    <div class="user-id-display">
+                        <span>{{ user_id }}</span>
+                        <button class="copy-btn" onclick="copyUserId()">Copy</button>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>Search Users</h3>
+                    <div class="search-container">
+                        <input type="text" id="user-search" placeholder="Enter user ID to search..." class="search-input">
+                        <button onclick="searchUser()" class="search-btn">Search</button>
+                    </div>
+                    <div id="search-results" class="search-results"></div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>Recent Conversations</h3>
+                    <div id="conversations-list" class="conversations-list">
+                        <!-- Conversations will be loaded here -->
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>Friend Requests</h3>
+                    <div id="friend-requests" class="friend-requests">
+                        <!-- Friend requests will be loaded here -->
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>Friends List</h3>
+                    <div id="friends-list" class="friends-list">
+                        <!-- Friends will be loaded here -->
+                    </div>
+                </div>
+                
+                <!-- Logout section at bottom -->
+                <div class="sidebar-section logout-section">
+                    <div class="user-info">
+                        <span class="username">Welcome, {{ username }}!</span>
+                        <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Chat Area -->
+            <div class="chat-main">
+                <div class="chat-messages" id="chat-messages">
+                    <!-- Messages will be loaded here -->
+                    <div class="welcome-message">
+                        <div class="welcome-header">
+                            <h2>CryptoChat</h2>
+                            <p class="welcome-quote">"Secure Chatting with your friends"</p>
+                        </div>
+                        <div class="welcome-info">
+                            <p>Your user ID is: <strong>{{ user_id }}</strong></p>
+                            <p>Search for other users by their ID to start a conversation.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="chat-input" id="chat-input-area" style="display:none;">
+                    <div id="image-preview-container" style="display:none; justify-content:center; align-items:center; margin-bottom:8px;"></div>
+                    <form id="message-form" enctype="multipart/form-data" style="display: flex; align-items: center;">
+                        <input type="text" id="message-input" placeholder="Type your message...">
+                        <label for="photo-input" class="photo-upload-label" style="margin-left:8px; cursor:pointer; display:flex; align-items:center;">
+                            <img src="{{ url_for('static', filename='icons/icon-128x128.png') }}" alt="Attach" style="width:28px; height:28px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.10);">
+                        </label>
+                        <input type="file" id="photo-input" accept="image/*" style="display:none;">
+                        <button type="submit" class="btn-send">Send</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="image-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;">
+        <img id="modal-img" src="" alt="Full Size" style="max-width:90vw;max-height:90vh;border-radius:12px;box-shadow:0 4px 32px rgba(0,0,0,0.25);">
+    </div>
+
+    <script>
+        let currentChatUser = null;
+        let conversations = [];
+        let currentMessages = [];
+        let isUpdating = false;
+        let shouldScrollToBottom = false;
+
+        // Mobile sidebar toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('chat-sidebar');
+            const overlay = document.querySelector('.sidebar-overlay');
+            
+            if (sidebar.classList.contains('sidebar-open')) {
+                sidebar.classList.remove('sidebar-open');
+                if (overlay) {
+                    overlay.remove();
+                }
+            } else {
+                sidebar.classList.add('sidebar-open');
+                createOverlay();
+            }
+        }
+
+        // Create overlay for mobile sidebar
+        function createOverlay() {
+            const overlay = document.createElement('div');
+            overlay.className = 'sidebar-overlay';
+            overlay.addEventListener('click', toggleSidebar);
+            document.body.appendChild(overlay);
+        }
+
+        // Copy user ID to clipboard
+        function copyUserId() {
+            const userId = '{{ user_id }}';
+            navigator.clipboard.writeText(userId).then(() => {
+                alert('User ID copied to clipboard!');
+            });
+        }
+
+        // Search for user by ID
+        function searchUser() {
+            const searchInput = document.getElementById('user-search');
+            const userId = searchInput.value.trim();
+            
+            if (!userId) {
+                alert('Please enter a user ID');
+                return;
+            }
+
+            fetch(`/api/search_user/${userId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displaySearchResult(data.user);
+                        currentChatUser = data.user;
+                    } else {
+                        document.getElementById('search-results').innerHTML = 
+                            '<div class="search-error">User not found</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error searching user:', error);
+                    document.getElementById('search-results').innerHTML = 
+                        '<div class="search-error">Error searching user</div>';
+                });
+        }
+
+        // Display search result with friend system
+        function displaySearchResult(user) {
+            const resultsDiv = document.getElementById('search-results');
+            const onlineStatus = user.is_online ? 
+                '<span class="status-indicator online"></span>' : 
+                '<span class="status-indicator offline"></span>';
+            
+            // Check if user is already a friend
+            checkFriendshipStatus(user.id).then(isFriend => {
+                let actionButton = '';
+                if (isFriend) {
+                    actionButton = '<span class="friend-status">✓ Friend</span>';
+                } else {
+                    actionButton = `
+                        <button onclick="sendFriendRequest('${user.id}')" class="add-friend-btn">
+                            <span class="friend-icon">👥</span> Add Friend
+                        </button>
+                    `;
+                }
+                
+                resultsDiv.innerHTML = `
+                    <div class="search-result">
+                        <div class="user-info">
+                            <strong>${user.username}</strong> ${onlineStatus}
+                            <span class="user-id">${user.id}</span>
+                        </div>
+                        <div class="user-actions">
+                            <button onclick="startChat('${user.id}', '${user.username}')" class="start-chat-btn">
+                                Start Chat
+                            </button>
+                            ${actionButton}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Check friendship status
+        function checkFriendshipStatus(friendId) {
+            return fetch('/api/friends')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        return data.friends.some(friend => friend.id === friendId);
+                    }
+                    return false;
+                })
+                .catch(error => {
+                    console.error('Error checking friendship status:', error);
+                    return false;
+                });
+        }
+
+        // Send friend request
+        function sendFriendRequest(friendId) {
+            fetch('/api/send_friend_request', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ friend_id: friendId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showMessageError('Friend request sent!', 'success');
+                    // Refresh search results
+                    const searchInput = document.getElementById('user-search');
+                    if (searchInput.value.trim()) {
+                        searchUser();
+                    }
+                } else {
+                    showMessageError(data.error || 'Failed to send friend request');
+                }
+            })
+            .catch(error => {
+                console.error('Error sending friend request:', error);
+                showMessageError('Network error. Please try again.');
+            });
+        }
+
+        // Start chat with user
+        function startChat(userId, username) {
+            currentChatUser = { id: userId, username: username };
+            
+            console.log('Starting chat with:', username, 'ID:', userId);
+            
+            // Update chat header
+            document.querySelector('.chat-main').innerHTML = `
+                <div class="chat-header-mini">
+                    <div class="chat-header-left">
+                        <button class="back-btn" onclick="goBack()">
+                            <span class="back-icon">←</span>
+                        </button>
+                        <div class="chat-user-info">
+                            <h3>${username}</h3>
+                            <span class="user-id">${userId}</span>
+                        </div>
+                    </div>
+                    <div class="chat-header-right">
+                        <button onclick="copyUserId('${userId}')" class="copy-btn">Copy ID</button>
+                    </div>
+                </div>
+                <div class="chat-messages" id="chat-messages">
+                    <div class="welcome-message">
+                        <p>Started conversation with ${username}</p>
+                    </div>
+                </div>
+                <div class="chat-input" id="chat-input-area" style="display:block;">
+                    <form id="message-form" enctype="multipart/form-data">
+                        <input type="text" id="message-input" placeholder="Type your message..." required>
+                        <label for="photo-input" class="photo-upload-label" style="margin-left:8px; cursor:pointer; display:flex; align-items:center;">
+                            <img src="{{ url_for('static', filename='icons/icon-128x128.png') }}" alt="Attach" style="width:28px; height:28px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.10);">
+                        </label>
+                        <input type="file" id="photo-input" accept="image/*" style="display:none;">
+                        <button type="submit" class="btn-send">Send</button>
+                    </form>
+                </div>
+            `;
+
+            // Load previous messages
+            loadMessages(userId);
+            
+            // Enable message input immediately
+            enableMessageInput();
+            
+            // Reattach event listener
+            document.getElementById('message-form').addEventListener('submit', handleMessageSubmit);
+            
+            // Close sidebar on mobile
+            if (window.innerWidth <= 768) {
+                toggleSidebar();
+            }
+
+            shouldScrollToBottom = true;
+        }
+
+        // Go back to main view
+        function goBack() {
+            currentChatUser = null;
+            document.querySelector('.chat-main').innerHTML = `
+                <div class="chat-messages" id="chat-messages">
+                    <div class="welcome-message">
+                        <div class="welcome-header">
+                            <h2>CryptoChat</h2>
+                            <p class="welcome-quote">"Secure Chatting with your friends"</p>
+                        </div>
+                        <div class="welcome-info">
+                            <p>Your user ID is: <strong>{{ user_id }}</strong></p>
+                            <p>Search for other users by their ID to start a conversation.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="chat-input" id="chat-input-area" style="display:none;">
+                    <form id="message-form">
+                        <input type="text" id="message-input" placeholder="Type your message..." required>
+                        <button type="submit" class="btn-send">Send</button>
+                    </form>
+                </div>
+            `;
+            disableMessageInput();
+        }
+
+        // Send message
+        function sendMessage(message) {
+            if (!currentChatUser) {
+                console.error('No current chat user');
+                return;
+            }
+
+            const messageData = {
+                receiver_id: currentChatUser.id,
+                content: message
+            };
+
+            fetch('/api/send_message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(messageData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('Message sent successfully');
+                    
+                    // Add message to current messages immediately
+                    const newMessage = {
+                        id: data.message_id,
+                        sender_id: '{{ user_id }}',
+                        receiver_id: currentChatUser.id,
+                        content: message,
+                        timestamp: new Date().toISOString() // Stored in UTC, converted to Myanmar time when displayed
+                    };
+                    
+                    currentMessages.push(newMessage);
+                    displayMessages(currentMessages);
+                    
+                    // Update conversations
+                    loadConversations();
+                } else {
+                    showMessageError(data.message || 'Failed to send message');
+                }
+            })
+            .catch(error => {
+                console.error('Error sending message:', error);
+                showMessageError('Network error. Please try again.');
+            });
+        }
+
+        // Handle message submit
+        function handleMessageSubmit(event) {
+            event.preventDefault();
+            const messageInput = document.getElementById('message-input');
+            const photoInput = document.getElementById('photo-input');
+            const message = messageInput.value.trim();
+            const file = photoInput.files[0];
+            if (!message && !file) return;
+            if (!currentChatUser) return;
+            // Clear input immediately for better UX
+            messageInput.value = '';
+            photoInput.value = '';
+            imagePreviewContainer.style.display = 'none';
+            imagePreviewContainer.innerHTML = '';
+            // Add message to UI immediately (optimistic update)
+            const optimisticMessage = {
+                id: 'temp_' + Date.now(),
+                sender_id: '{{ user_id }}',
+                receiver_id: currentChatUser.id,
+                content: message,
+                timestamp: new Date().toISOString(),
+                has_attachment: !!file,
+                attachment_type: file ? 'image' : null,
+                attachment_filename: file ? 'preview' : null
+            };
+            currentMessages.push(optimisticMessage);
+            displayMessages(currentMessages);
+            // Send message to backend
+            if (file) {
+                const formData = new FormData();
+                formData.append('receiver_id', currentChatUser.id);
+                formData.append('content', message);
+                formData.append('file', file);
+                fetch('/api/send_message', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        loadMessages(currentChatUser.id);
+                        loadConversations();
+                    } else {
+                        showMessageError(data.error || 'Failed to send message');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error sending message:', error);
+                    showMessageError('Network error. Please try again.');
+                });
+            } else {
+                sendMessage(message);
+            }
+        }
+
+        // Show message error or success
+        function showMessageError(message, type = 'error') {
+            const messagesDiv = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = message;
+            messagesDiv.appendChild(messageDiv);
+            
+            // Remove message after 5 seconds
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.parentNode.removeChild(messageDiv);
+                }
+            }, 5000);
+        }
+
+        // Load messages
+        function loadMessages(userId) {
+            if (isUpdating) return;
+            
+            isUpdating = true;
+            fetch(`/api/messages/${userId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then (data => {
+                    if (data.success) {
+                        currentMessages = data.messages;
+                        displayMessages(data.messages);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading messages:', error);
+                })
+                .finally(() => {
+                    isUpdating = false;
+                });
+        }
+
+        // Display messages
+        function displayMessages(messages) {
+            const messagesDiv = document.getElementById('chat-messages');
+            if (!messagesDiv) return;
+            messagesDiv.innerHTML = '';
+            messages.forEach(message => {
+                const messageDiv = document.createElement('div');
+                const isSentByMe = message.sender_id === '{{ user_id }}';
+                messageDiv.className = `message ${isSentByMe ? 'sent' : 'received'}`;
+                const messageTime = formatMessageTime(message.timestamp);
+                let contentHtml = '';
+                if (message.has_attachment && message.attachment_type === 'image' && message.attachment_filename) {
+                    contentHtml = `<img src="/static/uploads/${message.attachment_filename}" alt="Image" class="chat-image" style="max-width:220px;max-height:220px;border-radius:8px;object-fit:cover;box-shadow:none;background:none;border:none;cursor:pointer;" onclick="showFullImage('/static/uploads/${message.attachment_filename}')">`;
+                }
+                if (message.content) {
+                    contentHtml += `<p>${escapeHtml(message.content)}</p>`;
+                }
+                messageDiv.innerHTML = `
+                    ${contentHtml}
+                    <span class="message-time">${messageTime}</span>
+                `;
+                messagesDiv.appendChild(messageDiv);
+            });
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load conversations
+        function loadConversations() {
+            fetch('/api/conversations')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        conversations = data.conversations;
+                        displayConversations();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading conversations:', error);
+                });
+        }
+
+        // Display conversations
+        function displayConversations() {
+            const conversationsDiv = document.getElementById('conversations-list');
+            if (conversations.length === 0) {
+                conversationsDiv.innerHTML = '<p class="no-conversations">No recent conversations</p>';
+                return;
+            }
+            
+            let conversationsHtml = '';
+            conversations.forEach(conv => {
+                conversationsHtml += `
+                    <div class="conversation-item" onclick="startChat('${conv.user_id}', '${conv.username}')">
+                        <div class="conversation-info">
+                            <strong>${conv.username}</strong>
+                            <span class="last-message">${conv.last_message || 'No messages yet'}</span>
+                        </div>
+                        <div class="conversation-time">${formatTime(conv.timestamp)}</div>
+                    </div>
+                `;
+            });
+            
+            conversationsDiv.innerHTML = conversationsHtml;
+        }
+
+        // Format timestamp for display (Myanmar time)
+        function formatTime(timestamp) {
+            if (!timestamp) return '';
+            
+            try {
+                const date = new Date(timestamp);
+                if (isNaN(date.getTime())) return '';
+                
+                // Convert to Myanmar time (UTC+6:30)
+                const myanmarTime = new Date(date.getTime() + (6.5 * 60 * 60 * 1000));
+                const now = new Date();
+                const nowMyanmar = new Date(now.getTime() + (6.5 * 60 * 60 * 1000));
+                const diffMs = nowMyanmar - myanmarTime;
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMs / 3600000);
+                const diffDays = Math.floor(diffMs / 86400000);
+                
+                if (diffMins < 1) return 'Just now';
+                if (diffMins < 60) return `${diffMins}m ago`;
+                if (diffHours < 24) return `${diffHours}h ago`;
+                if (diffDays < 7) return `${diffDays}d ago`;
+                
+                // For older dates, show the actual date in Myanmar time
+                return myanmarTime.toLocaleDateString('en-US', { 
+                    timeZone: 'Asia/Yangon',
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+            } catch (error) {
+                console.error('Error formatting time:', error);
+                return '';
+            }
+        }
+
+        // Format message time for display (Myanmar time)
+        function formatMessageTime(timestamp) {
+            if (!timestamp) return '';
+            
+            try {
+                const date = new Date(timestamp);
+                if (isNaN(date.getTime())) return '';
+                
+                // Convert to Myanmar time (UTC+6:30)
+                const myanmarTime = new Date(date.getTime() + (6.5 * 60 * 60 * 1000));
+                
+                return myanmarTime.toLocaleTimeString('en-US', {
+                    timeZone: 'Asia/Yangon',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                });
+            } catch (error) {
+                console.error('Error formatting message time:', error);
+                return '';
+            }
+        }
+
+        // Load friend requests
+        function loadFriendRequests() {
+            fetch('/api/friend_requests')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.requests.length > 0) {
+                        displayFriendRequests(data.requests);
+                    } else {
+                        // Clear friend requests section if no requests
+                        const requestsDiv = document.getElementById('friend-requests');
+                        if (requestsDiv) {
+                            requestsDiv.innerHTML = '<p class="no-requests">No friend requests</p>';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading friend requests:', error);
+                });
+        }
+
+        // Load friends list
+        function loadFriendsList() {
+            fetch('/api/friends')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayFriendsList(data.friends);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading friends:', error);
+                });
+        }
+
+        // Display friend requests
+        function displayFriendRequests(requests) {
+            const requestsDiv = document.getElementById('friend-requests');
+            if (!requestsDiv) return;
+            
+            let requestsHtml = '<h4>Friend Requests</h4>';
+            requests.forEach(req => {
+                requestsHtml += `
+                    <div class="friend-request">
+                        <div class="request-info">
+                            <strong>${req.username}</strong>
+                            <span class="user-id">${req.user_id}</span>
+                        </div>
+                        <div class="request-actions">
+                            <button onclick="respondToFriendRequest(${req.id}, 'accept')" class="accept-btn">
+                                <span class="btn-icon">✓</span>
+                                <span class="btn-text">Accept</span>
+                            </button>
+                            <button onclick="respondToFriendRequest(${req.id}, 'reject')" class="reject-btn">
+                                <span class="btn-icon">✗</span>
+                                <span class="btn-text">Reject</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            requestsDiv.innerHTML = requestsHtml;
+        }
+
+        // Display friends list
+        function displayFriendsList(friends) {
+            const friendsDiv = document.getElementById('friends-list');
+            if (!friendsDiv) return;
+            
+            if (friends.length === 0) {
+                friendsDiv.innerHTML = '<p class="no-friends">No friends yet</p>';
+                return;
+            }
+            
+            let friendsHtml = '<h4>Your Friends</h4>';
+            friends.forEach(friend => {
+                friendsHtml += `
+                    <div class="friend-item" onclick="startChat('${friend.id}', '${friend.username}')">
+                        <div class="friend-info">
+                            <strong>${friend.username}</strong>
+                            <span class="user-id">${friend.id}</span>
+                        </div>
+                        <div class="friend-status">
+                            <span class="status-indicator offline"></span>
+                            <span class="status-text">Click to chat</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            friendsDiv.innerHTML = friendsHtml;
+        }
+
+        // Respond to friend request
+        function respondToFriendRequest(requestId, response) {
+            fetch('/api/respond_friend_request', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    request_id: requestId, 
+                    response: response 
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showMessageError(`Friend request ${response}ed!`, 'success');
+                    loadFriendRequests(); // Refresh requests
+                    if (response === 'accept') {
+                        loadFriendsList(); // Refresh friends list if accepted
+                    }
+                } else {
+                    showMessageError(data.error || 'Failed to respond to friend request');
+                }
+            })
+            .catch(error => {
+                console.error('Error responding to friend request:', error);
+                showMessageError('Network error. Please try again.');
+            });
+        }
+
+        // Real-time update variables
+        let conversationUpdateInterval;
+        let messageUpdateInterval;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize dark mode
+            initializeDarkMode();
+            
+            // Load data
+            loadConversations();
+            loadFriendRequests();
+            loadFriendsList();
+            
+            // Attach event listener
+            document.getElementById('message-form').addEventListener('submit', handleMessageSubmit);
+            
+            // Mobile sidebar toggle
+            const sidebarToggle = document.getElementById('sidebar-toggle');
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', toggleSidebar);
+            }
+            
+            // Disable message input initially
+            disableMessageInput();
+            
+            // Start real-time updates
+            startRealTimeUpdates();
+        });
+
+        // Start real-time updates
+        function startRealTimeUpdates() {
+            // Conversation updates every 5 seconds
+            conversationUpdateInterval = setInterval(() => {
+                if (!document.hidden) {
+                    loadConversations();
+                }
+            }, 5000);
+
+            // Message updates every 2 seconds
+            messageUpdateInterval = setInterval(() => {
+                if (currentChatUser && !document.hidden) {
+                    loadMessages(currentChatUser.id);
+                }
+            }, 2000);
+        }
+
+        // Dark mode toggle
+        function toggleDarkMode() {
+            const body = document.body;
+            const isDarkMode = body.classList.contains('dark-mode');
+            const darkModeIcon = document.querySelector('.dark-mode-icon');
+
+            if (isDarkMode) {
+                body.classList.remove('dark-mode');
+                if (darkModeIcon) {
+                    darkModeIcon.textContent = '🌙';
+                }
+                localStorage.setItem('darkMode', 'false');
+            } else {
+                body.classList.add('dark-mode');
+                if (darkModeIcon) {
+                    darkModeIcon.textContent = '☀️';
+                }
+                localStorage.setItem('darkMode', 'true');
+            }
+        }
+
+        // Initialize dark mode
+        function initializeDarkMode() {
+            const isDarkMode = localStorage.getItem('darkMode') === 'true';
+            if (isDarkMode) {
+                document.body.classList.add('dark-mode');
+                const darkModeIcon = document.querySelector('.dark-mode-icon');
+                if (darkModeIcon) {
+                    darkModeIcon.textContent = '☀️';
+                }
+            }
+        }
+
+        // Enable/disable chat input based on chat user selection
+        function enableMessageInput() {
+            const chatInputArea = document.getElementById('chat-input-area');
+            if (chatInputArea) chatInputArea.style.display = 'block';
+            const messageInput = document.getElementById('message-input');
+            const sendButton = document.querySelector('.btn-send');
+            if (messageInput) {
+                messageInput.disabled = false;
+                messageInput.placeholder = "Type your message...";
+                messageInput.style.opacity = '1';
+                messageInput.style.cursor = 'text';
+            }
+            if (sendButton) {
+                sendButton.disabled = false;
+                sendButton.style.opacity = '1';
+                sendButton.style.cursor = 'pointer';
+            }
+        }
+        function disableMessageInput() {
+            const chatInputArea = document.getElementById('chat-input-area');
+            if (chatInputArea) chatInputArea.style.display = 'none';
+            const messageInput = document.getElementById('message-input');
+            const sendButton = document.querySelector('.btn-send');
+            if (messageInput) {
+                messageInput.disabled = true;
+                messageInput.placeholder = "Search for a user to start chatting...";
+                messageInput.style.opacity = '0.6';
+                messageInput.style.cursor = 'not-allowed';
+            }
+            if (sendButton) {
+                sendButton.disabled = true;
+                sendButton.style.opacity = '0.5';
+                sendButton.style.cursor = 'not-allowed';
+            }
+        }
+
+        // Image preview logic
+        const photoInput = document.getElementById('photo-input');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+        photoInput.addEventListener('change', function() {
+            imagePreviewContainer.innerHTML = '';
+            if (this.files && this.files[0]) {
+                const file = this.files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreviewContainer.style.display = 'flex';
+                    imagePreviewContainer.innerHTML = `<img src='${e.target.result}' id='preview-img' style='max-width:120px;max-height:120px;border-radius:8px;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,0.10);cursor:pointer;'>`;
+                    // Make preview clickable for full size
+                    document.getElementById('preview-img').onclick = function() {
+                        showFullImage(e.target.result);
+                    };
+                };
+                reader.readAsDataURL(file);
+            } else {
+                imagePreviewContainer.style.display = 'none';
+            }
+        });
+        // Full size modal logic
+        function showFullImage(src) {
+            const modal = document.getElementById('image-modal');
+            const modalImg = document.getElementById('modal-img');
+            modalImg.src = src;
+            modal.style.display = 'flex';
+        }
+        document.getElementById('image-modal').addEventListener('click', function() {
+            this.style.display = 'none';
+            document.getElementById('modal-img').src = '';
+        });
+
+    </script>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js')
+                    .then((registration) => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch((registrationError) => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
