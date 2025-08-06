@@ -382,12 +382,10 @@
                 console.error('No current chat user');
                 return;
             }
-
             const messageData = {
                 receiver_id: currentChatUser.id,
                 content: message
             };
-
             fetch('/api/send_message', {
                 method: 'POST',
                 headers: {
@@ -395,11 +393,20 @@
                 },
                 body: JSON.stringify(messageData)
             })
-            .then(response => response.json())
-            .then(data => {
+            .then(async response => {
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    showMessageError('Server returned invalid response.');
+                    return;
+                }
+                if (!response.ok) {
+                    showMessageError(`HTTP error ${response.status}: ${data.error || data.message || 'Failed to send message.'}`);
+                    return;
+                }
                 if (data.success) {
                     console.log('Message sent successfully');
-                    
                     // Add message to current messages immediately
                     const newMessage = {
                         id: data.message_id,
@@ -408,19 +415,17 @@
                         content: message,
                         timestamp: new Date().toISOString() // Stored in UTC, converted to Myanmar time when displayed
                     };
-                    
                     currentMessages.push(newMessage);
                     displayMessages(currentMessages);
-                    
                     // Update conversations
                     loadConversations();
                 } else {
-                    showMessageError(data.message || 'Failed to send message');
+                    showMessageError(data.error || data.message || 'Failed to send message.');
                 }
             })
             .catch(error => {
                 console.error('Error sending message:', error);
-                showMessageError('Network error. Please try again.');
+                showMessageError('Network error: ' + (error.message || error));
             });
         }
 
@@ -461,18 +466,28 @@
                     method: 'POST',
                     body: formData
                 })
-                .then(response => response.json())
-                .then(data => {
+                .then(async response => {
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (e) {
+                        showMessageError('Server returned invalid response.');
+                        return;
+                    }
+                    if (!response.ok) {
+                        showMessageError(`HTTP error ${response.status}: ${data.error || data.message || 'Failed to send message.'}`);
+                        return;
+                    }
                     if (data.success) {
                         loadMessages(currentChatUser.id);
                         loadConversations();
                     } else {
-                        showMessageError(data.error || 'Failed to send message');
+                        showMessageError(data.error || data.message || 'Failed to send message.');
                     }
                 })
                 .catch(error => {
                     console.error('Error sending message:', error);
-                    showMessageError('Network error. Please try again.');
+                    showMessageError('Network error: ' + (error.message || error));
                 });
             } else {
                 sendMessage(message);
