@@ -585,7 +585,7 @@
         function loadConversations() {
             fetch('/api/conversations')
                 .then(response => response.json())
-                .then data => {
+                .then(data => {
                     if (data.success) {
                         conversations = data.conversations;
                         displayConversations();
