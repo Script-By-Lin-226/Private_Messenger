@@ -249,6 +249,21 @@ def log_security_event(user_id, action, success=True, ip_address=None, user_agen
         # Don't let logging errors break the application
         print(f"Security logging error: {e}")
 
+# File upload validation
+def allowed_file(filename):
+    """Check if file extension is allowed"""
+    if not filename:
+        return False
+    
+    allowed_extensions = {
+        'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp',
+        'doc', 'docx', 'zip', 'rar', '7z', 'mp3', 'mp4',
+        'avi', 'mov', 'xlsx', 'xls', 'ppt', 'pptx'
+    }
+    
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in allowed_extensions
+
 # Admin action logging
 def log_admin_action(admin_id, action_type, target_user_id=None, action_details=None):
     """Log admin actions for audit trail"""
@@ -681,14 +696,26 @@ def get_messages(other_user_id):
     message_list = []
     for msg in messages:
         # Decrypt message content
-        decrypted_content = decrypt_message(msg.content)
-        message_list.append({
+        decrypted_content = decrypt_message(msg.content) if msg.content else None
+        message_data = {
             'id': msg.id,
-            'content': sanitize_input(decrypted_content),  # Sanitize content
+            'content': sanitize_input(decrypted_content) if decrypted_content else None,
             'sender_id': msg.sender_id,
             'receiver_id': msg.receiver_id,
-            'timestamp': msg.timestamp.isoformat()
-        })
+            'timestamp': msg.timestamp.isoformat(),
+            'has_attachment': msg.has_attachment or False
+        }
+        
+        # Add attachment information if present
+        if msg.has_attachment:
+            message_data.update({
+                'attachment_filename': msg.attachment_filename,
+                'attachment_original_name': msg.attachment_original_name,
+                'attachment_type': msg.attachment_type,
+                'attachment_size': msg.attachment_size
+            })
+        
+        message_list.append(message_data)
     
     return jsonify({'success': True, 'messages': message_list})
 
@@ -696,21 +723,33 @@ def get_messages(other_user_id):
 @login_required
 @rate_limit(max_requests=20, window=60)  # 20 messages per minute
 def send_message():
-    data = request.get_json()
-    if not data:
-        return jsonify({'success': False, 'error': 'Invalid request data'})
-    
-    receiver_id = data.get('receiver_id')
-    content = data.get('content')
+    # Check if it's a file upload or JSON data
+    if request.content_type and request.content_type.startswith('multipart/form-data'):
+        # Handle file upload
+        receiver_id = request.form.get('receiver_id')
+        content = request.form.get('content', '').strip()
+        file = request.files.get('file')
+    else:
+        # Handle JSON data (legacy support)
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Invalid request data'})
+        
+        receiver_id = data.get('receiver_id')
+        content = data.get('content', '').strip()
+        file = None
     
     # Input validation
-    if not receiver_id or not content:
-        return jsonify({'success': False, 'error': 'Missing receiver_id or content'})
+    if not receiver_id:
+        return jsonify({'success': False, 'error': 'Missing receiver_id'})
+    
+    if not content and not file:
+        return jsonify({'success': False, 'error': 'Message must contain text or file attachment'})
     
     if not validate_user_id(receiver_id):
         return jsonify({'success': False, 'error': 'Invalid receiver ID format'})
     
-    if not validate_message_content(content):
+    if content and not validate_message_content(content):
         return jsonify({'success': False, 'error': 'Invalid message content'})
     
     # Check if receiver exists
@@ -722,17 +761,65 @@ def send_message():
     if receiver_id == session['user_id']:
         return jsonify({'success': False, 'error': 'Cannot send message to yourself'})
     
-    # Sanitize message content
-    sanitized_content = sanitize_input(content)
+    # Handle file upload
+    attachment_filename = None
+    attachment_original_name = None
+    attachment_type = None
+    attachment_size = None
     
-    # Encrypt message if encryption is enabled
-    encrypted_content = encrypt_message(sanitized_content)
+    if file and file.filename:
+        # Validate file
+        if not allowed_file(file.filename):
+            return jsonify({'success': False, 'error': 'File type not allowed'})
+        
+        # Check file size (10MB limit)
+        file.seek(0, 2)  # Seek to end of file
+        file_size = file.tell()
+        file.seek(0)  # Reset to beginning
+        
+        if file_size > 10 * 1024 * 1024:  # 10MB
+            return jsonify({'success': False, 'error': 'File size must be less than 10MB'})
+        
+        # Generate secure filename
+        import uuid
+        import os
+        file_ext = os.path.splitext(file.filename)[1].lower()
+        attachment_filename = f"{uuid.uuid4().hex}{file_ext}"
+        attachment_original_name = file.filename
+        attachment_size = file_size
+        
+        # Determine file type
+        if file_ext.lower() in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
+            attachment_type = 'image'
+        elif file_ext.lower() in ['.pdf']:
+            attachment_type = 'document'
+        else:
+            attachment_type = 'other'
+        
+        # Save file
+        try:
+            upload_path = os.path.join(app.static_folder, 'uploads', attachment_filename)
+            os.makedirs(os.path.dirname(upload_path), exist_ok=True)
+            file.save(upload_path)
+        except Exception as e:
+            return jsonify({'success': False, 'error': 'Failed to save file'})
+    
+    # Sanitize message content if present
+    encrypted_content = None
+    if content:
+        sanitized_content = sanitize_input(content)
+        encrypted_content = encrypt_message(sanitized_content)
     
     # Create new message
     message = Message(
         content=encrypted_content,
         sender_id=session['user_id'],
-        receiver_id=receiver_id
+        receiver_id=receiver_id,
+        has_attachment=bool(file and file.filename),
+        attachment_filename=attachment_filename,
+        attachment_original_name=attachment_original_name,
+        attachment_type=attachment_type,
+        attachment_size=attachment_size
     )
     
     try:
@@ -745,6 +832,14 @@ def send_message():
         })
     except Exception as e:
         db.session.rollback()
+        # Clean up uploaded file if database save failed
+        if attachment_filename:
+            try:
+                upload_path = os.path.join(app.static_folder, 'uploads', attachment_filename)
+                if os.path.exists(upload_path):
+                    os.remove(upload_path)
+            except:
+                pass
         return jsonify({'success': False, 'error': 'Failed to send message'})
 
 @app.route('/api/conversations')
@@ -1173,13 +1268,32 @@ def admin_manage_user(user_id):
             
             # Hard delete - remove user completely
             username = user.username
-            db.session.delete(user)
-            db.session.commit()
-            
-            log_admin_action(admin_id, 'delete_user', user_id, f'User {username} deleted permanently')
-            return jsonify({'success': True, 'message': f'User {username} deleted successfully'})
+            try:
+                # Create admin action log entry (but don't commit yet)
+                ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+                if ',' in ip_address:
+                    ip_address = ip_address.split(',')[0].strip()
+                
+                admin_action = AdminAction(
+                    admin_id=admin_id,
+                    target_user_id=user_id,
+                    action_type='delete_user',
+                    action_details=f'User {username} deleted permanently',
+                    ip_address=ip_address
+                )
+                db.session.add(admin_action)
+                
+                # Delete the user
+                db.session.delete(user)
+                db.session.commit()
+                
+                return jsonify({'success': True, 'message': f'User {username} deleted successfully'})
+            except Exception as delete_error:
+                db.session.rollback()
+                return jsonify({'success': False, 'error': f'Failed to delete user: {str(delete_error)}'}), 500
     
     except Exception as e:
+        db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/admin/messages')

@@ -90,4 +90,4 @@ def main():
         migrate_sqlite()
 
 if __name__ == "__main__":
-    main() 
+    main()

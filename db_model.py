@@ -41,11 +41,18 @@ class User(db.Model):
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.Text, nullable=False)
+    content = db.Column(db.Text, nullable=True)  # Made nullable for file-only messages
     sender_id = db.Column(db.String(10), nullable=False)
     receiver_id = db.Column(db.String(10), nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     is_deleted = db.Column(db.Boolean, default=False)  # Soft delete
+    
+    # File attachment fields
+    has_attachment = db.Column(db.Boolean, default=False)
+    attachment_filename = db.Column(db.String(255), nullable=True)
+    attachment_original_name = db.Column(db.String(255), nullable=True)
+    attachment_type = db.Column(db.String(50), nullable=True)  # image, document, etc.
+    attachment_size = db.Column(db.Integer, nullable=True)  # Size in bytes
     
     # Admin fields
     is_flagged = db.Column(db.Boolean, default=False)
