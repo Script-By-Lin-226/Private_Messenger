@@ -152,6 +152,7 @@
         let currentMessages = [];
         let isUpdating = false;
         let shouldScrollToBottom = false;
+        let lastMessageCount = 0;
 
         // Mobile sidebar toggle
         function toggleSidebar() {
@@ -540,8 +541,11 @@
         function displayMessages(messages) {
             const messagesDiv = document.getElementById('chat-messages');
             if (!messagesDiv) return;
+            const previousCount = lastMessageCount;
+            lastMessageCount = messages.length;
+            let playNotify = false;
             messagesDiv.innerHTML = '';
-            messages.forEach(message => {
+            messages.forEach((message, idx) => {
                 const messageDiv = document.createElement('div');
                 const isSentByMe = message.sender_id === '{{ user_id }}';
                 messageDiv.className = `message ${isSentByMe ? 'sent' : 'received'}`;
@@ -558,8 +562,16 @@
                     <span class="message-time">${messageTime}</span>
                 `;
                 messagesDiv.appendChild(messageDiv);
+                // Play sound if new message received and not sent by me
+                if (idx === messages.length - 1 && lastMessageCount > previousCount && !isSentByMe) {
+                    playNotify = true;
+                }
             });
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            if (playNotify) {
+                const audio = new Audio('/static/notify.mp3');
+                audio.play().catch(() => {});
+            }
         }
 
         // Escape HTML to prevent XSS
@@ -573,7 +585,7 @@
         function loadConversations() {
             fetch('/api/conversations')
                 .then(response => response.json())
-                .then(data => {
+                .then data => {
                     if (data.success) {
                         conversations = data.conversations;
                         displayConversations();
