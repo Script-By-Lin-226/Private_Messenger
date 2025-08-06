@@ -1,56 +1,63 @@
 #!/usr/bin/env python3
 """
-Database migration script to add online status fields to existing databases.
-Run this script to update existing databases with the new online status tracking fields.
+Database migration script to add ON DELETE CASCADE to security_log.user_id foreign key.
+Also deletes related security logs before deleting a user for existing databases.
 """
 
-import sqlite3
 import os
+import sqlite3
+import psycopg2
+from psycopg2 import sql
 from datetime import datetime
 
-def migrate_database():
-    """Migrate the database to add online status fields"""
-    db_path = 'instance/user_data.db'
-    
-    if not os.path.exists(db_path):
-        print("Database file not found. Creating new database...")
+def migrate_postgres():
+    """Migrate PostgreSQL database to add ON DELETE CASCADE to security_log.user_id foreign key"""
+    import os
+    db_url = os.environ.get('DATABASE_URL')
+    if not db_url:
+        print("No DATABASE_URL set. Skipping PostgreSQL migration.")
         return
-    
-    print("Starting database migration...")
-    
+    print("Connecting to PostgreSQL...")
+    conn = psycopg2.connect(db_url)
+    cur = conn.cursor()
     try:
-        # Connect to the database
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        
-        # Check if the new columns already exist
-        cursor.execute("PRAGMA table_info(user)")
-        columns = [column[1] for column in cursor.fetchall()]
-        
-        # Add last_seen column if it doesn't exist
-        if 'last_seen' not in columns:
-            print("Adding last_seen column...")
-            cursor.execute("ALTER TABLE user ADD COLUMN last_seen DATETIME")
-        
-        # Add is_online column if it doesn't exist
-        if 'is_online' not in columns:
-            print("Adding is_online column...")
-            cursor.execute("ALTER TABLE user ADD COLUMN is_online BOOLEAN")
-        
-        # Update existing users with current timestamp
-        print("Updating existing users with current timestamp...")
-        current_time = datetime.utcnow().isoformat()
-        cursor.execute("UPDATE user SET last_seen = ?, is_online = 0 WHERE last_seen IS NULL", (current_time,))
-        
-        # Commit changes
+        # Drop the old constraint
+        cur.execute("""
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.table_constraints
+                    WHERE constraint_name = 'security_log_user_id_fkey'
+                ) THEN
+                    ALTER TABLE security_log DROP CONSTRAINT security_log_user_id_fkey;
+                END IF;
+            END$$;
+        """)
+        # Add the new constraint with ON DELETE CASCADE
+        cur.execute("""
+            ALTER TABLE security_log
+            ADD CONSTRAINT security_log_user_id_fkey
+            FOREIGN KEY (user_id) REFERENCES "user"(id) ON DELETE CASCADE;
+        """)
         conn.commit()
-        print("Database migration completed successfully!")
-        
+        print("✅ Updated security_log.user_id foreign key to ON DELETE CASCADE.")
     except Exception as e:
-        print(f"Error during migration: {e}")
+        print(f"Error updating foreign key: {e}")
         conn.rollback()
     finally:
+        cur.close()
         conn.close()
 
+def migrate_sqlite():
+    """Migrate SQLite database (no-op for ON DELETE CASCADE)"""
+    print("SQLite migration not required for ON DELETE CASCADE.")
+
+def main():
+    db_url = os.environ.get('DATABASE_URL')
+    if db_url and db_url.startswith('postgres'):
+        migrate_postgres()
+    else:
+        migrate_sqlite()
+
 if __name__ == "__main__":
-    migrate_database() 
+    main() 

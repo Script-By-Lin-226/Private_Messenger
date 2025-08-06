@@ -914,8 +914,7 @@ def get_friends():
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
-    """Admin dashboard main page"""
-    return render_template('admin_dashboard.html')
+    return redirect(url_for('admin_users'))
 
 @app.route('/admin/users')
 @admin_required

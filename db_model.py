@@ -72,7 +72,7 @@ class Friend(db.Model):
 class SecurityLog(db.Model):
     """Security audit log"""
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.String(10), db.ForeignKey('user.id'), nullable=True)
+    user_id = db.Column(db.String(10), db.ForeignKey('user.id', ondelete='CASCADE'), nullable=True)
     action = db.Column(db.String(50), nullable=False)  # login, logout, message_sent, etc.
     ip_address = db.Column(db.String(45), nullable=True)  # IPv6 compatible
     user_agent = db.Column(db.Text, nullable=True)
