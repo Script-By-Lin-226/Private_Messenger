@@ -1173,13 +1173,32 @@ def admin_manage_user(user_id):
             
             # Hard delete - remove user completely
             username = user.username
-            db.session.delete(user)
-            db.session.commit()
-            
-            log_admin_action(admin_id, 'delete_user', user_id, f'User {username} deleted permanently')
-            return jsonify({'success': True, 'message': f'User {username} deleted successfully'})
+            try:
+                # Create admin action log entry (but don't commit yet)
+                ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+                if ',' in ip_address:
+                    ip_address = ip_address.split(',')[0].strip()
+                
+                admin_action = AdminAction(
+                    admin_id=admin_id,
+                    target_user_id=user_id,
+                    action_type='delete_user',
+                    action_details=f'User {username} deleted permanently',
+                    ip_address=ip_address
+                )
+                db.session.add(admin_action)
+                
+                # Delete the user
+                db.session.delete(user)
+                db.session.commit()
+                
+                return jsonify({'success': True, 'message': f'User {username} deleted successfully'})
+            except Exception as delete_error:
+                db.session.rollback()
+                return jsonify({'success': False, 'error': f'Failed to delete user: {str(delete_error)}'}), 500
     
     except Exception as e:
+        db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/admin/messages')
