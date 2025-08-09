@@ -1,5 +1,4 @@
-// Service Worker for Private Messenger PWA
-const CACHE_NAME = 'private-messenger-v1';
+const CACHE_NAME = 'private-messenger-v2';
 const urlsToCache = [
   '/',
   '/static/styles.css',
@@ -8,49 +7,49 @@ const urlsToCache = [
   '/static/manifest.json'
 ];
 
-// Install event - cache resources
+// Install event - cache core resources
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
+    caches.open(CACHE_NAME).then(cache => {
+      console.log('[SW] Caching app shell');
+      return cache.addAll(urlsToCache);
+    })
   );
+  self.skipWaiting(); // Activate worker immediately
 });
 
-// Fetch event - serve from cache when offline
+// Fetch event - serve from cache or fetch from network
 self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // Return cached version or fetch from network
-        if (response) {
-          return response;
+    caches.match(event.request).then(response => {
+      return response || fetch(event.request).catch(() => {
+        // Optionally return a fallback page/image for offline
+        if (event.request.destination === 'image') {
+          return caches.match('/static/icons/icon-192x192.png');
         }
-        return fetch(event.request);
-      }
-    )
-  );
-});
-
-// Activate event - clean up old caches
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
+      });
     })
   );
 });
 
-// Background sync for offline messages
+// Activate event - remove old caches
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(
+        keys.map(key => {
+          if (key !== CACHE_NAME) {
+            console.log('[SW] Removing old cache:', key);
+            return caches.delete(key);
+          }
+        })
+      )
+    )
+  );
+  self.clients.claim(); // Start controlling pages immediately
+});
+
+// Background sync - custom logic
 self.addEventListener('sync', event => {
   if (event.tag === 'background-sync') {
     event.waitUntil(doBackgroundSync());
@@ -58,15 +57,15 @@ self.addEventListener('sync', event => {
 });
 
 function doBackgroundSync() {
-  // Handle offline message sync when connection is restored
-  console.log('Background sync triggered');
-  // Add your offline message sync logic here
+  console.log('[SW] Background sync triggered');
+  // TODO: Implement actual sync logic here (e.g. send queued messages)
 }
 
-// Push notification handling
+// Push Notification
 self.addEventListener('push', event => {
+  const data = event.data ? event.data.text() : 'New message received!';
   const options = {
-    body: event.data ? event.data.text() : 'New message received!',
+    body: data,
     icon: '/static/icons/icon-192x192.png',
     badge: '/static/icons/icon-96x96.png',
     vibrate: [100, 50, 100],
@@ -93,13 +92,14 @@ self.addEventListener('push', event => {
   );
 });
 
-// Notification click handling
+// Handle notification click
 self.addEventListener('notificationclick', event => {
   event.notification.close();
 
   if (event.action === 'explore') {
-    event.waitUntil(
-      clients.openWindow('/')
-    );
+    event.waitUntil(clients.openWindow('/'));
+  } else {
+    // Handle other actions like 'close'
+    console.log('[SW] Notification closed');
   }
-}); 
+});
