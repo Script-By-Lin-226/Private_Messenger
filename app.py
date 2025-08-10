@@ -687,7 +687,16 @@ def get_messages(other_user_id):
     
     current_user_id = session['user_id']
     
-    # Get messages between current user and other user
+    # Try to get cached messages first
+    try:
+        from message_cache import get_cached_messages, cache_messages
+        cached_messages = get_cached_messages(current_user_id, other_user_id)
+        if cached_messages:
+            return jsonify({'success': True, 'messages': cached_messages, 'cached': True})
+    except ImportError:
+        pass  # Cache not available
+    
+    # Get messages from database if not cached
     messages = Message.query.filter(
         ((Message.sender_id == current_user_id) & (Message.receiver_id == other_user_id)) |
         ((Message.sender_id == other_user_id) & (Message.receiver_id == current_user_id))
@@ -717,7 +726,13 @@ def get_messages(other_user_id):
         
         message_list.append(message_data)
     
-    return jsonify({'success': True, 'messages': message_list})
+    # Cache the messages for future requests
+    try:
+        cache_messages(current_user_id, other_user_id, message_list)
+    except ImportError:
+        pass  # Cache not available
+    
+    return jsonify({'success': True, 'messages': message_list, 'cached': False})
 
 @app.route('/api/send_message', methods=['POST'])
 @login_required
@@ -743,8 +758,9 @@ def send_message():
     if not receiver_id:
         return jsonify({'success': False, 'error': 'Missing receiver_id'})
     
-    if not content:
-        return jsonify({'success': False, 'error': 'Message must include text'})
+    # Allow file-only messages (no text required)
+    if not content and not file:
+        return jsonify({'success': False, 'error': 'Message must include text or file'})
     
     if not validate_user_id(receiver_id):
         return jsonify({'success': False, 'error': 'Invalid receiver ID format'})
@@ -772,13 +788,13 @@ def send_message():
         if not allowed_file(file.filename):
             return jsonify({'success': False, 'error': 'File type not allowed'})
         
-        # Check file size (10MB limit)
+        # Check file size (5MB limit for better performance)
         file.seek(0, 2)  # Seek to end of file
         file_size = file.tell()
         file.seek(0)  # Reset to beginning
         
-        if file_size > 10 * 1024 * 1024:  # 10MB
-            return jsonify({'success': False, 'error': 'File size must be less than 10MB'})
+        if file_size > 5 * 1024 * 1024:  # 5MB
+            return jsonify({'success': False, 'error': 'File size must be less than 5MB'})
         
         # Generate secure filename
         import uuid
@@ -791,18 +807,58 @@ def send_message():
         # Determine file type
         if file_ext.lower() in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
             attachment_type = 'image'
+            
+            # Optimize image for faster uploads
+            try:
+                from image_optimizer import ImageOptimizer
+                
+                # Create optimized version
+                optimized_bytes, optimized_filename, optimized_size = ImageOptimizer.optimize_image(
+                    file, file.filename, 'full'
+                )
+                
+                # Create thumbnail for faster preview
+                thumbnail_bytes, thumbnail_filename, _ = ImageOptimizer.create_thumbnail(
+                    file, file.filename
+                )
+                
+                # Save optimized image
+                upload_path = os.path.join(app.static_folder, 'uploads', optimized_filename)
+                os.makedirs(os.path.dirname(upload_path), exist_ok=True)
+                with open(upload_path, 'wb') as f:
+                    f.write(optimized_bytes)
+                
+                # Save thumbnail
+                thumbnail_path = os.path.join(app.static_folder, 'uploads', thumbnail_filename)
+                with open(thumbnail_path, 'wb') as f:
+                    f.write(thumbnail_bytes)
+                
+                # Update file info
+                attachment_filename = optimized_filename
+                attachment_size = optimized_size
+                thumbnail_filename = thumbnail_filename
+                
+                # Reset file position for potential fallback
+                file.seek(0)
+                
+            except ImportError:
+                # Fallback to original file if optimization fails
+                upload_path = os.path.join(app.static_folder, 'uploads', attachment_filename)
+                os.makedirs(os.path.dirname(upload_path), exist_ok=True)
+                file.save(upload_path)
+                
         elif file_ext.lower() in ['.pdf']:
             attachment_type = 'document'
-        else:
-            attachment_type = 'other'
-        
-        # Save file
-        try:
+            # Save original file
             upload_path = os.path.join(app.static_folder, 'uploads', attachment_filename)
             os.makedirs(os.path.dirname(upload_path), exist_ok=True)
             file.save(upload_path)
-        except Exception as e:
-            return jsonify({'success': False, 'error': 'Failed to save file'})
+        else:
+            attachment_type = 'other'
+            # Save original file
+            upload_path = os.path.join(app.static_folder, 'uploads', attachment_filename)
+            os.makedirs(os.path.dirname(upload_path), exist_ok=True)
+            file.save(upload_path)
     
     # Sanitize message content if present
     encrypted_content = None
@@ -825,19 +881,33 @@ def send_message():
     try:
         db.session.add(message)
         db.session.commit()
+        
+        # Invalidate cache for this conversation
+        try:
+            from message_cache import invalidate_conversation_cache
+            invalidate_conversation_cache(session['user_id'], receiver_id)
+        except ImportError:
+            pass  # Cache not available
+        
         return jsonify({
             'success': True, 
             'message_id': message.id,
-            'sender_id': session['user_id']
+            'sender_id': session['user_id'],
+            'thumbnail': thumbnail_filename if 'thumbnail_filename' in locals() else None
         })
     except Exception as e:
         db.session.rollback()
-        # Clean up uploaded file if database save failed
+        # Clean up uploaded files if database save failed
         if attachment_filename:
             try:
                 upload_path = os.path.join(app.static_folder, 'uploads', attachment_filename)
                 if os.path.exists(upload_path):
                     os.remove(upload_path)
+                # Clean up thumbnail if it exists
+                if 'thumbnail_filename' in locals() and thumbnail_filename:
+                    thumbnail_path = os.path.join(app.static_folder, 'uploads', thumbnail_filename)
+                    if os.path.exists(thumbnail_path):
+                        os.remove(thumbnail_path)
             except:
                 pass
         return jsonify({'success': False, 'error': 'Failed to send message'})
@@ -846,6 +916,15 @@ def send_message():
 @login_required
 def get_conversations():
     current_user_id = session['user_id']
+    
+    # Try to get cached conversations first
+    try:
+        from message_cache import conversation_cache
+        cached_conversations = conversation_cache.get(current_user_id)
+        if cached_conversations:
+            return jsonify({'success': True, 'conversations': cached_conversations, 'cached': True})
+    except ImportError:
+        pass  # Cache not available
     
     # Get all conversations where the current user is involved
     conversations = db.session.query(
@@ -865,8 +944,8 @@ def get_conversations():
         other_user_id = msg.sender_id if msg.sender_id != current_user_id else msg.receiver_id
         
         if other_user_id not in conversation_map:
-                        # Decrypt message for conversation list
-            decrypted_content = decrypt_message(msg.content)
+            # Decrypt message for conversation list
+            decrypted_content = decrypt_message(msg.content) if msg.content else None
             conversation_map[other_user_id] = {
                 'user_id': other_user_id,
                 'last_message': decrypted_content,
@@ -888,7 +967,13 @@ def get_conversations():
     # Sort by timestamp (most recent first)
     conversation_list.sort(key=lambda x: x['timestamp'], reverse=True)
     
-    return jsonify({'success': True, 'conversations': conversation_list})
+    # Cache the conversations for future requests
+    try:
+        conversation_cache.set(current_user_id, conversation_list)
+    except ImportError:
+        pass  # Cache not available
+    
+    return jsonify({'success': True, 'conversations': conversation_list, 'cached': False})
 
 # Friend system routes
 @app.route('/api/send_friend_request', methods=['POST'])

@@ -363,22 +363,21 @@
             document.querySelector('.chat-main').innerHTML = `
                 <div class="chat-messages" id="chat-messages">
                     <div class="welcome-message">
-                        <div class="welcome-header">
-                            <h2>CryptoChat</h2>
-                            <p class="welcome-quote">"Secure Chatting with your friends"</p>
+                        <h2 class="welcome-title">Welcome to <span>CryptoChat</span></h2>
+                        <p class="welcome-subtitle">Secure. Fast. Decentralized.</p>
+                        
+                        <div class="user-id-box">
+                            <label>Your User ID</label>
+                            <div class="user-id-row">
+                                <strong>{{ user_id }}</strong>
+                                <button onclick="copyUserId()" class="copy-btn">Copy</button>
+                            </div>
                         </div>
-                        <div class="welcome-info">
-                            <p>Your user ID is: <strong>{{ user_id }}</strong></p>
-                            <p>Search for other users by their ID to start a conversation.</p>
-                        </div>
+                        
+                        <p class="welcome-tip">Search for other users by ID to start chatting 🚀</p>
                     </div>
                 </div>
-                <div class="chat-input" id="chat-input-area" style="display:none;">
-                    <form id="message-form">
-                        <input type="text" id="message-input" placeholder="Type your message..." required>
-                        <button type="submit" class="btn-send">Send</button>
-                    </form>
-                </div>
+                
             `;
             disableMessageInput();
         }
@@ -534,10 +533,17 @@
         function displayMessages(messages) {
             const messagesDiv = document.getElementById('chat-messages');
             if (!messagesDiv) return;
+
+            // Check if user is near bottom BEFORE clearing messages
+            const nearBottom = messagesDiv.scrollHeight - messagesDiv.scrollTop <= messagesDiv.clientHeight + 50;
+
             const previousCount = lastMessageCount;
             lastMessageCount = messages.length;
             let playNotify = false;
+
+            // Clear previous messages
             messagesDiv.innerHTML = '';
+
             messages.forEach((message, idx) => {
                 const messageDiv = document.createElement('div');
                 const isSentByMe = message.sender_id === '{{ user_id }}';
@@ -552,15 +558,23 @@
                 }
                 messageDiv.innerHTML = `
                     ${contentHtml}
-                    <span class="message-time">${messageTime}</span>
+                    <span class="message-time" style='color:black;'>${messageTime}</span>
                 `;
                 messagesDiv.appendChild(messageDiv);
+
                 // Play sound if new message received and not sent by me
                 if (idx === messages.length - 1 && lastMessageCount > previousCount && !isSentByMe) {
                     playNotify = true;
                 }
             });
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            // Scroll to bottom only if user was near bottom before
+            if (nearBottom) {
+                setTimeout(() => {
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }, 200);
+            }
+
             if (playNotify) {
                 const audio = new Audio('/static/notify.mp3');
                 audio.play().catch(() => {});
