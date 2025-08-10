@@ -535,7 +535,7 @@
             if (!messagesDiv) return;
 
             // Check if user is near bottom BEFORE clearing messages
-            const nearBottom = messagesDiv.scrollHeight - messagesDiv.scrollTop <= messagesDiv.clientHeight + 50;
+            const nearBottom = messagesDiv.scrollHeight - messagesDiv.scrollTop <= messagesDiv.clientHeight + 500;
 
             const previousCount = lastMessageCount;
             lastMessageCount = messages.length;
@@ -570,9 +570,7 @@
 
             // Scroll to bottom only if user was near bottom before
             if (nearBottom) {
-                setTimeout(() => {
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }, 0);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
             }
 
             if (playNotify) {
