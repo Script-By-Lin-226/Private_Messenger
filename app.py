@@ -13,9 +13,10 @@ import base64
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
+from flask_migrate import Migrate
 
 app = Flask(__name__)
-
+migrate = Migrate(app, db)
 # Security Configuration
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
 

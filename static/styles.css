@@ -2139,7 +2139,6 @@ body {
 
 .welcome-title span {
     background: linear-gradient(90deg, #8b5cf6, #3b82f6);
-    -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 

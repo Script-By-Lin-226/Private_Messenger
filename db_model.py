@@ -42,8 +42,8 @@ class User(db.Model):
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text, nullable=True)  # Made nullable for file-only messages
-    sender_id = db.Column(db.String(10), nullable=False)
-    receiver_id = db.Column(db.String(10), nullable=False)
+    sender_id = db.Column(db.String(10),db.ForeignKey('user.id', ondelete='CASCADE'))
+    receiver_id = db.Column(db.String(10), db.ForeignKey('user.id', ondelete='CASCADE'))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     is_deleted = db.Column(db.Boolean, default=False)  # Soft delete
     
@@ -65,8 +65,8 @@ class Message(db.Model):
 
 class Friend(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.String(10), db.ForeignKey('user.id'), nullable=False)
-    friend_id = db.Column(db.String(10), db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.String(10), db.ForeignKey('user.id', ondelete='CASCADE'))
+    friend_id = db.Column(db.String(10), db.ForeignKey('user.id', ondelete='CASCADE'))
     status = db.Column(db.String(20), default='pending')  # pending, accepted, rejected
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -79,7 +79,7 @@ class Friend(db.Model):
 class SecurityLog(db.Model):
     """Security audit log"""
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.String(10), db.ForeignKey('user.id', ondelete='CASCADE'), nullable=True)
+    user_id = db.Column(db.String(10), db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True)
     action = db.Column(db.String(50), nullable=False)  # login, logout, message_sent, etc.
     ip_address = db.Column(db.String(45), nullable=True)  # IPv6 compatible
     user_agent = db.Column(db.Text, nullable=True)
@@ -93,7 +93,7 @@ class AdminAction(db.Model):
     """Admin action log"""
     id = db.Column(db.Integer, primary_key=True)
     admin_id = db.Column(db.String(10), db.ForeignKey('user.id'), nullable=False)
-    target_user_id = db.Column(db.String(10), db.ForeignKey('user.id'), nullable=True)
+    target_user_id = db.Column(db.String(10), db.ForeignKey('user.id',ondelete='SET NULL'), nullable=True)
     action_type = db.Column(db.String(50), nullable=False)  # ban_user, delete_message, etc.
     action_details = db.Column(db.Text, nullable=True)  # JSON string with details
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
