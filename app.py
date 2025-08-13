@@ -1345,6 +1345,16 @@ def admin_manage_user(user_id):
                     user.notes = data['notes']
                     log_admin_action(admin_id, 'update_user_notes', user_id, "Notes updated")
             
+            if 'login_attempts' in data:
+                user.login_attempts = data['login_attempts']
+                if data['login_attempts'] == 0:
+                    user.locked_until = None
+                    log_admin_action(admin_id, 'reset_login_attempts', user_id, "Login attempts reset")
+            
+            if 'locked_until' in data and data['locked_until'] is None:
+                user.locked_until = None
+                log_admin_action(admin_id, 'unlock_account', user_id, "Account unlocked")
+            
             db.session.commit()
             return jsonify({'success': True, 'message': 'User updated successfully'})
         

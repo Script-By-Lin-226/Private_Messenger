@@ -202,7 +202,7 @@
             height: 100%;
             background-color: rgba(0,0,0,0.5);
         }
-        
+
         .modal-content {
             background-color: white;
             margin: 5% auto;
@@ -213,30 +213,30 @@
             max-height: 80vh;
             overflow-y: auto;
         }
-        
+
         .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
         }
-        
+
         .close {
             font-size: 28px;
             font-weight: bold;
             cursor: pointer;
         }
-        
+
         .form-group {
             margin-bottom: 15px;
         }
-        
+
         .form-group label {
             display: block;
             margin-bottom: 5px;
             font-weight: bold;
         }
-        
+
         .form-group textarea {
             width: 100%;
             padding: 8px;
@@ -244,13 +244,171 @@
             border-radius: 4px;
             min-height: 100px;
         }
-        
+
         .encryption-info {
             background: #e7f3ff;
             border: 1px solid #b3d9ff;
             padding: 10px;
             border-radius: 5px;
             margin-bottom: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .admin-container {
+                padding: 10px;
+            }
+
+            .admin-header {
+                padding: 20px;
+                margin-bottom: 20px;
+            }
+
+            .admin-header h1 {
+                font-size: 2rem;
+            }
+
+            .admin-nav {
+                padding: 15px;
+                gap: 10px;
+            }
+
+            .admin-nav a {
+                padding: 10px 15px;
+                font-size: 0.85rem;
+            }
+
+            .filter-bar {
+                flex-direction: column;
+                gap: 15px;
+                align-items: stretch;
+            }
+
+            .filter-bar select,
+            .filter-bar input {
+                padding: 10px;
+                font-size: 0.9rem;
+            }
+
+            .messages-table {
+                overflow-x: auto;
+            }
+
+            .messages-table table {
+                min-width: 800px;
+            }
+
+            .messages-table th,
+            .messages-table td {
+                padding: 8px 10px;
+                font-size: 0.85rem;
+            }
+
+            .modal-content {
+                width: 95%;
+                max-height: 90vh;
+                margin: 2% auto;
+                overflow-y: auto;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+                gap: 5px;
+            }
+
+            .btn {
+                font-size: 0.85rem;
+                padding: 8px 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .admin-container {
+                padding: 5px;
+            }
+
+            .admin-header {
+                padding: 15px;
+                margin-bottom: 15px;
+            }
+
+            .admin-header h1 {
+                font-size: 1.75rem;
+            }
+
+            .admin-nav {
+                padding: 10px;
+                gap: 5px;
+            }
+
+            .admin-nav a {
+                padding: 8px 12px;
+                font-size: 0.8rem;
+                flex: 1;
+                text-align: center;
+            }
+
+            .filter-bar {
+                gap: 10px;
+            }
+
+            .filter-bar select,
+            .filter-bar input {
+                padding: 8px;
+                font-size: 0.85rem;
+            }
+
+            .messages-table th,
+            .messages-table td {
+                padding: 6px 8px;
+                font-size: 0.75rem;
+            }
+
+            .modal-content {
+                width: 98%;
+                max-height: 95vh;
+                margin: 1% auto;
+                padding: 15px;
+            }
+
+            .modal-header h3 {
+                font-size: 1.1rem;
+            }
+
+            .btn {
+                font-size: 0.8rem;
+                padding: 6px 10px;
+            }
+
+            .action-buttons .btn {
+                min-width: auto;
+                flex: 1;
+            }
+
+            .pagination {
+                padding: 15px;
+                gap: 5px;
+            }
+
+            .pagination button {
+                padding: 8px 12px;
+                font-size: 0.8rem;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .main-footer {
+                flex-direction: column;
+                gap: 10px;
+                font-size: 1.05em;
+                padding: 14px 0;
+            }
+            .main-footer a {
+                margin: 0;
+                width: 90vw;
+                text-align: center;
+                padding: 10px 0;
+                font-size: 1em;
+            }
         }
     </style>
 </head>
@@ -261,7 +419,7 @@
             <p>Review, moderate, and manage messages with encryption</p>
         </div>
         <div class="admin-nav">
-            
+
             <a href="/admin/users">Users</a>
             <a href="/admin/messages" class="active">Messages</a>
             <a href="/admin/logs">Logs</a>
@@ -301,7 +459,7 @@
         </div>
         <div class="pagination" id="pagination"></div>
     </div>
-    
+
     <!-- Message Detail Modal -->
     <div id="messageModal" class="modal">
         <div class="modal-content">
@@ -349,7 +507,7 @@
             </div>
         </div>
     </div>
-    
+
     <script>
         let currentPage = 1;
         let currentMessageId = null;
@@ -357,16 +515,16 @@
             status: 'all',
             search: ''
         };
-        
+
         async function loadMessages(page = 1) {
             try {
                 const status = document.getElementById('filter-status').value;
                 const search = document.getElementById('search-input').value;
-                
+
                 const url = `/api/admin/messages?page=${page}&flagged_only=${status === 'flagged'}&search=${encodeURIComponent(search)}`;
                 const response = await fetch(url);
                 const data = await response.json();
-                
+
                 if (data.success) {
                     displayMessages(data.messages);
                     displayPagination(data.current_page, data.pages);
@@ -377,19 +535,19 @@
                 showAlert('Error loading messages: ' + error.message, 'error');
             }
         }
-        
+
         function displayMessages(messages) {
             const tbody = document.getElementById('messages-tbody');
-            
+
             if (messages.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No messages found</td></tr>';
                 return;
             }
-            
+
             const html = messages.map(msg => {
                 let statusClass = 'status-normal';
                 let statusText = 'Normal';
-                
+
                 if (msg.is_deleted) {
                     statusClass = 'status-deleted';
                     statusText = 'Deleted';
@@ -397,7 +555,7 @@
                     statusClass = 'status-flagged';
                     statusText = 'Flagged';
                 }
-                
+
                 return `
                     <tr>
                         <td>${msg.id}</td>
@@ -420,19 +578,19 @@
                     </tr>
                 `;
             }).join('');
-            
+
             tbody.innerHTML = html;
         }
-        
+
         function displayPagination(currentPage, totalPages) {
             const pagination = document.getElementById('pagination');
             let html = '';
-            
+
             if (totalPages > 1) {
                 if (currentPage > 1) {
                     html += `<button onclick="loadMessages(${currentPage - 1})">Previous</button>`;
                 }
-                
+
                 for (let i = 1; i <= totalPages; i++) {
                     if (i === currentPage) {
                         html += `<button class="active">${i}</button>`;
@@ -440,35 +598,35 @@
                         html += `<button onclick="loadMessages(${i})">${i}</button>`;
                     }
                 }
-                
+
                 if (currentPage < totalPages) {
                     html += `<button onclick="loadMessages(${currentPage + 1})">Next</button>`;
                 }
             }
-            
+
             pagination.innerHTML = html;
         }
-        
+
         async function viewMessage(messageId) {
             try {
                 const response = await fetch(`/api/admin/message/${messageId}`);
                 const data = await response.json();
-                
+
                 if (data.success) {
                     const msg = data.message;
                     currentMessageId = messageId;
-                    
+
                     document.getElementById('message-id').textContent = msg.id;
                     document.getElementById('message-sender').textContent = msg.sender;
                     document.getElementById('message-receiver').textContent = msg.receiver;
                     document.getElementById('message-content-full').textContent = msg.content;
                     document.getElementById('message-timestamp').textContent = new Date(msg.timestamp).toLocaleString();
-                    
+
                     let statusText = 'Normal';
                     if (msg.is_deleted) statusText = 'Deleted';
                     else if (msg.is_flagged) statusText = 'Flagged';
                     document.getElementById('message-status').textContent = statusText;
-                    
+
                     // Check encryption status
                     const encryptionStatus = document.getElementById('encryption-status');
                     if (msg.content.includes('🔒') || msg.content.includes('encrypted')) {
@@ -478,11 +636,11 @@
                         encryptionStatus.textContent = 'Not Encrypted';
                         encryptionStatus.style.color = '#dc3545';
                     }
-                    
+
                     // Update flag button
                     const flagBtn = document.getElementById('flag-btn');
                     flagBtn.textContent = msg.is_flagged ? 'Unflag Message' : 'Flag Message';
-                    
+
                     document.getElementById('messageModal').style.display = 'block';
                 } else {
                     showAlert('Error loading message: ' + data.error, 'error');
@@ -491,10 +649,10 @@
                 showAlert('Error loading message: ' + error.message, 'error');
             }
         }
-        
+
         async function flagMessage(messageId) {
             const reason = prompt('Enter reason for flagging (optional):');
-            
+
             try {
                 const response = await fetch(`/api/admin/message/${messageId}`, {
                     method: 'PUT',
@@ -506,9 +664,9 @@
                         flagged_reason: reason || 'Flagged by admin'
                     })
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
                     showAlert(data.message, 'success');
                     loadMessages(currentPage);
@@ -519,19 +677,19 @@
                 showAlert('Error flagging message: ' + error.message, 'error');
             }
         }
-        
+
         async function deleteMessage(messageId) {
             if (!confirm('Are you sure you want to delete this message?')) {
                 return;
             }
-            
+
             try {
                 const response = await fetch(`/api/admin/message/${messageId}`, {
                     method: 'DELETE'
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
                     showAlert(data.message, 'success');
                     loadMessages(currentPage);
@@ -543,24 +701,24 @@
                 showAlert('Error deleting message: ' + error.message, 'error');
             }
         }
-        
+
         function closeModal() {
             document.getElementById('messageModal').style.display = 'none';
             currentMessageId = null;
         }
-        
+
         function showAlert(message, type) {
             const alertsDiv = document.getElementById('alerts');
             const alertDiv = document.createElement('div');
             alertDiv.className = `alert alert-${type}`;
             alertDiv.textContent = message;
             alertsDiv.appendChild(alertDiv);
-            
+
             setTimeout(() => {
                 alertDiv.remove();
             }, 5000);
         }
-        
+
         // Close modal when clicking outside
         window.onclick = function(event) {
             const modal = document.getElementById('messageModal');
@@ -568,12 +726,12 @@
                 closeModal();
             }
         }
-        
+
         // Load messages on page load
         document.addEventListener('DOMContentLoaded', () => {
             loadMessages();
         });
-        
+
         // Filter on Enter key
         document.getElementById('search-input').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
@@ -582,4 +740,4 @@
         });
     </script>
 </body>
-</html> 
+</html>

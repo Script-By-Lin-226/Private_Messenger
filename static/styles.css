@@ -35,17 +35,16 @@ body {
 
 /* Mobile Header */
 .mobile-header {
-    background: #ffffff;
-    color: #1a202c;
-    padding: 0.75rem 1rem;
-    display: none; /* Hidden by default */
+    display: none;
     align-items: center;
     justify-content: space-between;
-    min-height: 60px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 0.75rem 1rem;
+    background: white;
     border-bottom: 1px solid #e2e8f0;
-    position: relative;
-    z-index: 1000;
+    height: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
 .mobile-header-left {
@@ -62,17 +61,17 @@ body {
 .mobile-header h1 {
     font-size: 1.25rem;
     font-weight: 600;
+    color: #2d3748;
     margin: 0;
-    color: #1a202c;
 }
 
 .sidebar-toggle-btn {
     background: transparent;
     border: none;
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     cursor: pointer;
     padding: 0.5rem;
-    border-radius: 8px;
+    border-radius: 6px;
     transition: background-color 0.2s ease;
     color: #4a5568;
 }
@@ -474,7 +473,7 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    
+
     position: relative;
     /* Use flex sizing instead of viewport units to prevent overflow under headers */
     width: 100%;
@@ -969,7 +968,7 @@ body {
     .chat-layout {
         position: relative;
     }
-    
+
     .chat-sidebar {
         position: fixed;
         top: 0;
@@ -981,12 +980,12 @@ body {
         transform: translateX(-100%);
         transition: transform 0.3s ease;
     }
-    
+
     .chat-sidebar.sidebar-open {
         transform: translateX(0);
         left: 0;
     }
-    
+
     .sidebar-overlay {
         position: fixed;
         top: 0;
@@ -996,77 +995,77 @@ body {
         background: rgba(0, 0, 0, 0.5);
         z-index: 1000;
     }
-    
+
     .desktop-header {
         display: none; /* Hide desktop header on mobile */
     }
-    
+
     .mobile-header {
         display: flex; /* Show mobile header on mobile */
     }
-    
+
     .chat-header-mini {
         padding: 0.75rem 1rem;
     }
-    
+
     .chat-messages {
         padding: 0.75rem;
     }
-    
+
     .chat-input {
         padding: 0.75rem;
     }
-    
+
     .chat-input form {
         gap: 0.25rem;
     }
-    
+
     .btn-send {
         padding: 0.75rem 1rem;
         min-width: 60px;
     }
-    
+
     .message {
         max-width: 85%;
         padding: 0.5rem 0.75rem;
     }
-    
+
     .search-container {
         flex-direction: column;
     }
-    
+
     .search-btn {
         width: 100%;
     }
-    
+
     .conversation-item {
         padding: 0.75rem;
     }
-    
+
     .search-result {
         padding: 0.5rem;
     }
-    
+
     .chat-header-mini {
         padding: 0.5rem 1rem;
     }
-    
+
     .chat-header-mini h3 {
         font-size: 1rem;
     }
-    
+
     .chat-header-mini .user-id {
         font-size: 0.7rem;
     }
-    
+
     .message {
         font-size: 0.875rem;
     }
-    
+
     .message-time {
         font-size: 0.7rem;
     }
-    
+
     .conversation-info .status-indicator,
     .search-result .user-info .status-indicator {
         width: 6px;
@@ -1079,104 +1078,104 @@ body {
         width: 100%;
         max-width: 320px;
     }
-    
+
     .mobile-header {
         padding: 0.5rem 0.75rem;
     }
-    
+
     .mobile-header h1 {
         font-size: 1.125rem;
     }
-    
+
     .dark-mode-btn {
         width: 36px;
         height: 36px;
         font-size: 1rem;
     }
-    
+
     .chat-messages {
         padding: 0.5rem;
     }
-    
+
     .chat-input {
         padding: 0.5rem;
     }
-    
+
     .message {
         max-width: 90%;
         padding: 0.5rem 0.75rem;
         font-size: 0.875rem;
     }
-    
+
     .sidebar-section {
         margin-bottom: 1rem;
     }
-    
+
     .user-id-display {
         padding: 0.5rem;
     }
-    
+
     .copy-btn {
         padding: 0.25rem 0.5rem;
         font-size: 0.7rem;
     }
-    
+
     .auth-wrapper {
         padding: 0.5rem;
     }
-    
+
     .auth-card {
         padding: 1.5rem;
     }
-    
+
     .brand h1 {
         font-size: 1.75rem;
     }
-    
+
     .auth-form h2 {
         font-size: 1.25rem;
     }
-    
+
     .form-group input {
         padding: 0.625rem 0.875rem;
     }
-    
+
     .btn-primary {
         padding: 0.625rem 1.25rem;
     }
-    
+
     .btn-send, .search-btn, .start-chat-btn, .copy-btn {
         padding: 0.5rem 0.75rem;
         font-size: 0.8rem;
     }
-    
+
     .conversation-item {
         padding: 0.5rem;
         margin: 0.25rem 0;
     }
-    
+
     .search-result {
         padding: 0.5rem;
         margin-bottom: 0.25rem;
     }
-    
+
     .chat-header-mini {
         padding: 0.5rem 0.75rem;
     }
-    
+
     .chat-header-mini h3 {
         font-size: 0.875rem;
     }
-    
+
     .chat-header-mini .user-id {
         font-size: 0.65rem;
     }
-    
+
     .message {
         font-size: 0.8rem;
         padding: 0.5rem 0.75rem;
     }
-    
+
     .message {
         background: #f9fafb;
         color: #1a1a1a;
@@ -1188,19 +1187,19 @@ body {
         max-width: 80%;
         display: inline-block;
     }
-    
+
     .message.sent {
         align-self: flex-end;
     }
-    
+
     .message.received {
         align-self: flex-start;
     }
-    
+
     .message-time {
         font-size: 0.65rem;
     }
-    
+
     .conversation-info .status-indicator,
     .search-result .user-info .status-indicator {
         width: 5px;
@@ -1213,47 +1212,47 @@ body {
         width: 100%;
         max-width: 300px;
     }
-    
+
     .mobile-header {
         padding: 0.5rem;
     }
-    
+
     .mobile-header h1 {
         font-size: 1rem;
     }
-    
+
     .dark-mode-btn {
         width: 32px;
         height: 32px;
         font-size: 0.875rem;
     }
-    
+
     .chat-messages {
         padding: 0.25rem;
     }
-    
+
     .chat-input {
         padding: 0.25rem;
     }
-    
+
     .message {
         max-width: 95%;
         padding: 0.5rem;
         font-size: 0.8rem;
     }
-    
+
     .auth-card {
         padding: 1rem;
     }
-    
+
     .brand h1 {
         font-size: 1.5rem;
     }
-    
+
     .form-group input {
         padding: 0.5rem 0.75rem;
     }
-    
+
     .btn-primary {
         padding: 0.5rem 1rem;
     }
@@ -1817,28 +1816,28 @@ body {
         padding: 0.4rem 0.6rem;
         font-size: 0.8rem;
     }
-    
+
     .btn-icon {
         font-size: 0.7rem;
     }
-    
+
     .btn-text {
         font-size: 0.7rem;
     }
-    
+
     .friend-item {
         padding: 1.05rem;
         margin-bottom: 0.4rem;
     }
-    
+
     .friend-info strong {
         font-size: 0.8rem;
     }
-    
+
     .friend-info .user-id {
         font-size: 0.5rem;
     }
-    
+
     .friend-status .status-text {
         font-size: 0.7rem;
     }
@@ -1851,28 +1850,28 @@ body {
         padding: 0.35rem 0.5rem;
         font-size: 0.75rem;
     }
-    
+
     .btn-icon {
         font-size: 0.65rem;
     }
-    
+
     .btn-text {
         font-size: 0.65rem;
     }
-    
+
     .friend-item {
         padding: 1.05rem;
         margin-bottom: 0.3rem;
     }
-    
+
     .friend-info strong {
         font-size: 0.75rem;
     }
-    
+
     .friend-info .user-id {
         font-size: 0.5rem;
     }
-    
+
     .friend-status .status-text {
         font-size: 0.65rem;
     }
@@ -1883,11 +1882,11 @@ body {
     .welcome-header h2 {
         font-size: 2rem;
     }
-    
+
     .welcome-quote {
         font-size: 1.125rem;
     }
-    
+
     .welcome-message {
         padding: 1.5rem 1rem;
     }
@@ -1897,15 +1896,15 @@ body {
     .welcome-header h2 {
         font-size: 1.75rem;
     }
-    
+
     .welcome-quote {
         font-size: 1rem;
     }
-    
+
     .welcome-message {
         padding: 1rem 0.75rem;
     }
-    
+
     .welcome-info p {
         font-size: 0.8rem;
     }
@@ -1916,11 +1915,11 @@ body {
     .desktop-header {
         display: flex; /* Ensure desktop header is shown on desktop */
     }
-    
+
     .mobile-header {
         display: none; /* Ensure mobile header is hidden on desktop */
     }
-    
+
     .chat-sidebar {
         position: relative;
         transform: none;
@@ -2019,7 +2018,7 @@ body {
     transition: background 0.2s, box-shadow 0.2s;
     justify-content: center;
     margin-left: 15px;
-    
+
 }
 
 .add-friend-btn:hover {
@@ -2115,12 +2114,12 @@ body {
 
 .accept-btn:hover {
     background: linear-gradient(90deg, #14ca6f 0%, #06ba90 100%);
-    
+
 }
 
 .reject-btn:hover {
     background: linear-gradient(90deg, #dc2626 0%, #b91c1c 100%);
-    
+
 }
 
 .welcome-message {
@@ -2239,6 +2238,15 @@ body {
 .friends-list { scrollbar-width: none; }
 
 /* Enhanced Loading Message Styles */
+.loading-message {
+    opacity: 0.7;
+    font-style: italic;
+}
+
+.loading-message p {
+    color: #6b7280;
+}
+
 .loading-message {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
@@ -2589,28 +2597,28 @@ body {
     .loading-content {
         gap: 8px;
     }
-    
+
     .loading-title {
         font-size: 13px;
     }
-    
+
     .loading-subtitle {
         font-size: 11px;
         max-width: 150px;
     }
-    
+
     .loading-progress {
         min-width: 60px;
     }
-    
+
     .progress-text {
         font-size: 10px;
     }
-    
+
     #photo-upload-progress {
         padding: 12px;
     }
-    
+
     .upload-status-text {
         font-size: 11px;
     }
@@ -2620,28 +2628,28 @@ body {
     .loading-message {
         padding: 12px;
     }
-    
+
     .loading-icon {
         font-size: 20px;
     }
-    
+
     .loading-title {
         font-size: 12px;
     }
-    
+
     .loading-subtitle {
         font-size: 10px;
         max-width: 120px;
     }
-    
+
     .loading-progress {
         min-width: 50px;
     }
-    
+
     .progress-bar {
         height: 4px;
     }
-    
+
     .progress-text {
         font-size: 9px;
     }
@@ -2900,34 +2908,34 @@ body {
     .loading {
         padding: 30px 16px;
     }
-    
+
     .loading i {
         font-size: 28px;
         margin-bottom: 12px;
     }
-    
+
     .loading-spinner {
         width: 32px;
         height: 32px;
         border-width: 3px;
     }
-    
+
     .loading-spinner.large {
         width: 48px;
         height: 48px;
         border-width: 5px;
     }
-    
+
     .skeleton-text {
         height: 14px;
         margin-bottom: 6px;
     }
-    
+
     .skeleton-avatar {
         width: 32px;
         height: 32px;
     }
-    
+
     .skeleton-button {
         width: 80px;
         height: 32px;
@@ -2938,34 +2946,34 @@ body {
     .loading {
         padding: 24px 12px;
     }
-    
+
     .loading i {
         font-size: 24px;
         margin-bottom: 8px;
     }
-    
+
     .loading-spinner {
         width: 28px;
         height: 28px;
         border-width: 2px;
     }
-    
+
     .loading-spinner.large {
         width: 40px;
         height: 40px;
         border-width: 4px;
     }
-    
+
     .skeleton-text {
         height: 12px;
         margin-bottom: 4px;
     }
-    
+
     .skeleton-avatar {
         width: 28px;
         height: 28px;
     }
-    
+
     .skeleton-button {
         width: 70px;
         height: 28px;

@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CryptoChat - Chat</title>
-    
+
     <!-- PWA Meta Tags -->
     <meta name="description" content="Secure private messaging platform with admin dashboard">
     <meta name="theme-color" content="#16213e">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="PrivateMsg">
-    
+
     <!-- PWA Icons -->
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/icon-96x96.png') }}">
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='icons/icon-96x96.png') }}">
@@ -19,10 +19,10 @@
     <link rel="apple-touch-icon" sizes="152x152" href="{{ url_for('static', filename='icons/icon-152x152.png') }}">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/icon-192x192.png') }}">
     <link rel="apple-touch-icon" sizes="167x167" href="{{ url_for('static', filename='icons/icon-152x152.png') }}">
-    
+
     <!-- PWA Manifest -->
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-    
+
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
@@ -103,7 +103,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Logout section at bottom -->
                 <div class="sidebar-section logout-section">
                     <div class="user-info">
@@ -120,7 +120,7 @@
                     <div class="welcome-message">
                         <h2 class="welcome-title">Welcome to <span>CryptoChat</span></h2>
                         <p class="welcome-subtitle">Secure. Fast. Decentralized.</p>
-                        
+
                         <div class="user-id-box">
                             <label>Your User ID</label>
                             <div class="user-id-row">
@@ -128,11 +128,11 @@
                                 <button onclick="copyUserId()" class="copy-btn">Copy</button>
                             </div>
                         </div>
-                        
+
                         <p class="welcome-tip">Search for other users by ID to start chatting 🚀</p>
                     </div>
                 </div>
-                
+
                 <div class="chat-input" id="chat-input-area" style="display:none;">
                     <div id="image-preview-container" style="display:none; justify-content:center; align-items:center; margin-bottom:8px;"></div>
                     <form id="message-form" enctype="multipart/form-data" style="display: flex; align-items: center;">
@@ -164,7 +164,7 @@
         function toggleSidebar() {
             const sidebar = document.getElementById('chat-sidebar');
             const overlay = document.querySelector('.sidebar-overlay');
-            
+
             if (sidebar.classList.contains('sidebar-open')) {
                 sidebar.classList.remove('sidebar-open');
                 if (overlay) {
@@ -196,7 +196,7 @@
         function searchUser() {
             const searchInput = document.getElementById('user-search');
             const userId = searchInput.value.trim();
-            
+
             if (!userId) {
                 alert('Please enter a user ID');
                 return;
@@ -226,7 +226,7 @@
             const onlineStatus = user.is_online ? 
                 '<span class="status-indicator online"></span>' : 
                 '<span class="status-indicator offline"></span>';
-            
+
             // Check if user is already a friend
             checkFriendshipStatus(user.id).then(isFriend => {
                 let actionButton = '';
@@ -239,7 +239,7 @@
                         </button>
                     `;
                 }
-                
+
                 resultsDiv.innerHTML = `
                     <div class="search-result">
                         <div class="user-info">
@@ -304,9 +304,9 @@
         // Start chat with user
         function startChat(userId, username) {
             currentChatUser = { id: userId, username: username };
-            
+
             console.log('Starting chat with:', username, 'ID:', userId);
-            
+
             // Update chat header
             document.querySelector('.chat-main').innerHTML = `
                 <div class="chat-header-mini">
@@ -342,13 +342,13 @@
 
             // Load previous messages
             loadMessages(userId);
-            
+
             // Enable message input immediately
             enableMessageInput();
-            
+
             // Reattach event listener
             document.getElementById('message-form').addEventListener('submit', handleMessageSubmit);
-            
+
             // Close sidebar on mobile
             if (window.innerWidth <= 768) {
                 toggleSidebar();
@@ -365,7 +365,7 @@
                     <div class="welcome-message">
                         <h2 class="welcome-title">Welcome to <span>CryptoChat</span></h2>
                         <p class="welcome-subtitle">Secure. Fast. Decentralized.</p>
-                        
+
                         <div class="user-id-box">
                             <label>Your User ID</label>
                             <div class="user-id-row">
@@ -373,11 +373,11 @@
                                 <button onclick="copyUserId()" class="copy-btn">Copy</button>
                             </div>
                         </div>
-                        
+
                         <p class="welcome-tip">Search for other users by ID to start chatting 🚀</p>
                     </div>
                 </div>
-                
+
             `;
             disableMessageInput();
         }
@@ -437,18 +437,26 @@
             const file = photoInput.files[0];
             if (!message && !file) return;
             if (!currentChatUser) return;
+
             // Clear input immediately for better UX
             messageInput.value = '';
             photoInput.value = '';
-            imagePreviewContainer.style.display = 'none';
-            imagePreviewContainer.innerHTML = '';
+            const imagePreviewContainer = document.getElementById('image-preview-container');
+            if (imagePreviewContainer) {
+                imagePreviewContainer.style.display = 'none';
+                imagePreviewContainer.innerHTML = '';
+            }
+
             // Show loading indicator instead of optimistic update
-            const loadingMessage = document.createElement('div');
-            loadingMessage.className = 'message sent';
-            loadingMessage.innerHTML = '<p>Sending message...</p>';
             const messagesDiv = document.getElementById('chat-messages');
-            messagesDiv.appendChild(loadingMessage);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            if (messagesDiv) {
+                const loadingMessage = document.createElement('div');
+                loadingMessage.className = 'message sent loading-message';
+                loadingMessage.innerHTML = '<p>Sending message...</p>';
+                loadingMessage.id = 'loading-message';
+                messagesDiv.appendChild(loadingMessage);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
             // Send message to backend
             if (file) {
                 const formData = new FormData();
@@ -490,11 +498,19 @@
         // Show message error or success
         function showMessageError(message, type = 'error') {
             const messagesDiv = document.getElementById('chat-messages');
+            if (!messagesDiv) return; // Ensure messagesDiv exists
+
+            // Remove existing loading message if present
+            const existingLoadingMessage = document.getElementById('loading-message');
+            if (existingLoadingMessage) {
+                existingLoadingMessage.remove();
+            }
+
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${type}`;
             messageDiv.textContent = message;
             messagesDiv.appendChild(messageDiv);
-            
+
             // Remove message after 5 seconds
             setTimeout(() => {
                 if (messageDiv.parentNode) {
@@ -506,7 +522,7 @@
         // Load messages
         function loadMessages(userId) {
             if (isUpdating) return;
-            
+
             isUpdating = true;
             fetch(`/api/messages/${userId}`)
                 .then(response => {
@@ -533,6 +549,12 @@
         function displayMessages(messages) {
             const messagesDiv = document.getElementById('chat-messages');
             if (!messagesDiv) return;
+
+            // Remove existing loading message before displaying new messages
+            const loadingMessage = document.getElementById('loading-message');
+            if (loadingMessage) {
+                loadingMessage.remove();
+            }
 
             // Check if user is near bottom BEFORE clearing messages
             const nearBottom = messagesDiv.scrollHeight - messagesDiv.scrollTop <= messagesDiv.clientHeight + 500;
@@ -608,7 +630,7 @@
                 conversationsDiv.innerHTML = '<p class="no-conversations">No recent conversations</p>';
                 return;
             }
-            
+
             let conversationsHtml = '';
             conversations.forEach(conv => {
                 conversationsHtml += `
@@ -621,7 +643,7 @@
                     </div>
                 `;
             });
-            
+
             conversationsDiv.innerHTML = conversationsHtml;
         }
 
@@ -632,34 +654,34 @@
                 // Parse the timestamp
                 const date = new Date(timestamp);
                 if (isNaN(date.getTime())) return '';
-                
+
                 // Get current date
                 const now = new Date();
-                
+
                 // Manually add 6 hours and 30 minutes for Myanmar time (UTC+6:30)
                 const mmOffset = 6 * 60 + 30; // 6 hours and 30 minutes in minutes
-                
+
                 // Apply Myanmar time offset to the date
                 const dateMM = new Date(date.getTime() + mmOffset * 60000); // Convert minutes to milliseconds
-                
+
                 // Apply Myanmar time offset to current date for today/yesterday comparison
                 const todayMM = new Date(now.getTime() + mmOffset * 60000);
                 todayMM.setHours(0, 0, 0, 0); // Set to start of day
-                
+
                 const yesterdayMM = new Date(todayMM);
                 yesterdayMM.setDate(yesterdayMM.getDate() - 1);
-                
+
                 // Create a date for comparison (set to start of day)
                 const messageDateMM = new Date(dateMM);
                 messageDateMM.setHours(0, 0, 0, 0); // Set to start of day for comparison
-                
+
                 // Format time part (HH:mm AM/PM)
                 const timePart = dateMM.toLocaleTimeString('en-US', {
                     hour: '2-digit',
                     minute: '2-digit',
                     hour12: true
                 });
-                
+
                 // Compare dates for today/yesterday/older
                 if (messageDateMM.getTime() === todayMM.getTime()) {
                     return timePart; // Today, just show time
@@ -722,7 +744,7 @@
         function displayFriendRequests(requests) {
             const requestsDiv = document.getElementById('friend-requests');
             if (!requestsDiv) return;
-            
+
             let requestsHtml = '';
             requests.forEach(req => {
                 requestsHtml += `
@@ -744,7 +766,7 @@
                     </div>
                 `;
             });
-            
+
             requestsDiv.innerHTML = requestsHtml;
         }
 
@@ -752,12 +774,12 @@
         function displayFriendsList(friends) {
             const friendsDiv = document.getElementById('friends-list');
             if (!friendsDiv) return;
-            
+
             if (friends.length === 0) {
                 friendsDiv.innerHTML = '<p class="no-friends">No friends yet</p>';
                 return;
             }
-            
+
             let friendsHtml = '';
             friends.forEach(friend => {
                 friendsHtml += `
@@ -773,7 +795,7 @@
                     </div>
                 `;
             });
-            
+
             friendsDiv.innerHTML = friendsHtml;
         }
 
@@ -810,29 +832,29 @@
         // Real-time update variables
         let conversationUpdateInterval;
         let messageUpdateInterval;
-        
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize dark mode
             initializeDarkMode();
-            
+
             // Load data
             loadConversations();
             loadFriendRequests();
             loadFriendsList();
-            
+
             // Attach event listener
             document.getElementById('message-form').addEventListener('submit', handleMessageSubmit);
-            
+
             // Mobile sidebar toggle
             const sidebarToggle = document.getElementById('sidebar-toggle');
             if (sidebarToggle) {
                 sidebarToggle.addEventListener('click', toggleSidebar);
             }
-            
+
             // Disable message input initially
             disableMessageInput();
-            
+
             // Start real-time updates
             startRealTimeUpdates();
         });
@@ -927,34 +949,40 @@
         const photoInput = document.getElementById('photo-input');
         const imagePreviewContainer = document.getElementById('image-preview-container');
         photoInput.addEventListener('change', function() {
-            imagePreviewContainer.innerHTML = '';
-            if (this.files && this.files[0]) {
-                const file = this.files[0];
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    imagePreviewContainer.style.display = 'flex';
-                    imagePreviewContainer.innerHTML = `<img src='${e.target.result}' id='preview-img' style='max-width:120px;max-height:120px;border-radius:8px;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,0.10);cursor:pointer;'>`;
-                    // Make preview clickable for full size
-                    document.getElementById('preview-img').onclick = function() {
-                        showFullImage(e.target.result);
+            if (imagePreviewContainer) {
+                imagePreviewContainer.innerHTML = '';
+                if (this.files && this.files[0]) {
+                    const file = this.files[0];
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        imagePreviewContainer.style.display = 'flex';
+                        imagePreviewContainer.innerHTML = `<img src='${e.target.result}' id='preview-img' style='max-width:120px;max-height:120px;border-radius:8px;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,0.10);cursor:pointer;'>`;
+                        // Make preview clickable for full size
+                        document.getElementById('preview-img').onclick = function() {
+                            showFullImage(e.target.result);
+                        };
                     };
-                };
-                reader.readAsDataURL(file);
-            } else {
-                imagePreviewContainer.style.display = 'none';
+                    reader.readAsDataURL(file);
+                } else {
+                    imagePreviewContainer.style.display = 'none';
+                }
             }
         });
         // Full size modal logic
         function showFullImage(src) {
             const modal = document.getElementById('image-modal');
             const modalImg = document.getElementById('modal-img');
-            modalImg.src = src;
-            modal.style.display = 'flex';
+            if (modal && modalImg) {
+                modalImg.src = src;
+                modal.style.display = 'flex';
+            }
         }
-        document.getElementById('image-modal').addEventListener('click', function() {
-            this.style.display = 'none';
-            document.getElementById('modal-img').src = '';
-        });
+        if (document.getElementById('image-modal')) {
+            document.getElementById('image-modal').addEventListener('click', function() {
+                this.style.display = 'none';
+                document.getElementById('modal-img').src = '';
+            });
+        }
 
     </script>
 
